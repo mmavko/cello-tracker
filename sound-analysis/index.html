@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f1117" />
-  <title>Audio Wave Monitor</title>
+  <title>Cello Tracker</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -36,22 +36,20 @@
       font-size: 1.25rem;
       font-weight: 600;
       letter-spacing: 0.02em;
-      color: var(--text);
     }
 
     #btn-toggle {
       min-width: 200px;
       min-height: 56px;
       padding: 0 2rem;
-      border: none;
+      border: 1.5px solid var(--start-color);
       border-radius: 12px;
       font-size: 1.1rem;
       font-weight: 600;
       cursor: pointer;
-      transition: opacity 0.15s;
       background: var(--start-bg);
       color: var(--start-color);
-      border: 1.5px solid var(--start-color);
+      transition: opacity 0.15s;
     }
 
     #btn-toggle.active {
@@ -60,10 +58,7 @@
       border-color: var(--stop-color);
     }
 
-    #btn-toggle:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
+    #btn-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 
     #status {
       font-size: 0.95rem;
@@ -81,10 +76,55 @@
       border: 1px solid #2a2d3a;
     }
 
-    #waveform {
+    #spectrum {
       display: block;
       width: 100%;
-      height: 200px;
+      height: 240px;
+    }
+
+    .threshold-row {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .threshold-row label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    #threshold-slider {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    #threshold-value {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      min-width: 2.5em;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #detection-badge {
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.3rem 0.9rem;
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text-muted);
+      border: 1px solid #333;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+
+    #detection-badge.on {
+      background: #1a3a28;
+      color: var(--accent);
+      border-color: var(--accent);
     }
 
     #wake-lock-status {
@@ -121,7 +161,7 @@
 </head>
 <body>
 
-  <h1>Audio Wave Monitor</h1>
+  <h1>Cello Tracker</h1>
 
   <div id="https-warning">⚠️ HTTPS required — mic and wake lock will not work over HTTP.</div>
 
@@ -129,8 +169,16 @@
 
   <p id="status">Status: Idle</p>
 
+  <div id="detection-badge">● Not detecting</div>
+
   <div class="canvas-wrap">
-    <canvas id="waveform"></canvas>
+    <canvas id="spectrum"></canvas>
+  </div>
+
+  <div class="threshold-row">
+    <label for="threshold-slider">Threshold</label>
+    <input id="threshold-slider" type="range" min="0" max="200" value="40" />
+    <span id="threshold-value">40</span>
   </div>
 
   <p id="wake-lock-status">Wake lock: —</p>
@@ -141,14 +189,27 @@
   </p>
 
   <script>
+    // ── Constants ─────────────────────────────────────────────────────────────
+    const NUM_BARS   = 80;
+    const MIN_FREQ   = 30;
+    const MAX_FREQ   = 8000;
+    const CELLO_LOW  = 65;
+    const CELLO_HIGH = 1200;
+    const FFT_SIZE   = 2048;
+    const ATTACK_MS  = 300;
+    const RELEASE_MS = 1500;
+
     // ── Elements ──────────────────────────────────────────────────────────────
-    const btn       = document.getElementById('btn-toggle');
-    const statusEl  = document.getElementById('status');
-    const canvas    = document.getElementById('waveform');
-    const ctx       = canvas.getContext('2d');
-    const wlEl      = document.getElementById('wake-lock-status');
-    const deniedEl  = document.getElementById('mic-denied-hint');
-    const httpsWarn = document.getElementById('https-warning');
+    const btn            = document.getElementById('btn-toggle');
+    const statusEl       = document.getElementById('status');
+    const canvas         = document.getElementById('spectrum');
+    const ctx            = canvas.getContext('2d');
+    const wlEl           = document.getElementById('wake-lock-status');
+    const deniedEl       = document.getElementById('mic-denied-hint');
+    const httpsWarn      = document.getElementById('https-warning');
+    const sliderEl       = document.getElementById('threshold-slider');
+    const sliderValueEl  = document.getElementById('threshold-value');
+    const detectionBadge = document.getElementById('detection-badge');
 
     // ── HTTPS guard ───────────────────────────────────────────────────────────
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -165,12 +226,44 @@
     let analyser        = null;
     let stream          = null;
     let sourceNode      = null;
-    let dataArray       = null;
+    let freqData        = null;
+
+    let isDetected    = false;
+    let aboveMs       = 0;
+    let belowMs       = 0;
+    let lastFrameTime = null;
+
+    // ── Slider ────────────────────────────────────────────────────────────────
+    let threshold = parseInt(sliderEl.value, 10);
+
+    sliderEl.addEventListener('input', () => {
+      threshold = parseInt(sliderEl.value, 10);
+      sliderValueEl.textContent = threshold;
+    });
+
+    // ── Bar frequency map (logarithmic) ───────────────────────────────────────
+    // Each bar covers a frequency range; bars in the cello band are flagged.
+    const barDefs = Array.from({ length: NUM_BARS }, (_, i) => {
+      const f1 = MIN_FREQ * Math.pow(MAX_FREQ / MIN_FREQ, i / NUM_BARS);
+      const f2 = MIN_FREQ * Math.pow(MAX_FREQ / MIN_FREQ, (i + 1) / NUM_BARS);
+      return { f1, f2, isCello: f1 < CELLO_HIGH && f2 > CELLO_LOW };
+    });
+
+    function getBarValue(bar) {
+      const nyquist  = audioCtx.sampleRate / 2;
+      const binCount = freqData.length;
+      const b1 = Math.round(bar.f1 / nyquist * binCount);
+      const b2 = Math.round(bar.f2 / nyquist * binCount);
+      let sum = 0, count = 0;
+      for (let b = b1; b <= Math.min(b2, binCount - 1); b++) {
+        sum += freqData[b];
+        count++;
+      }
+      return count > 0 ? sum / count : 0;
+    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    function setStatus(text) {
-      statusEl.textContent = 'Status: ' + text;
-    }
+    function setStatus(text) { statusEl.textContent = 'Status: ' + text; }
 
     function formatElapsed(ms) {
       const s = Math.floor(ms / 1000);
@@ -193,6 +286,13 @@
       btn.textContent = active ? '■ Stop Session' : '▶ Start Session';
     }
 
+    function setDetection(on) {
+      if (on === isDetected) return;
+      isDetected = on;
+      detectionBadge.classList.toggle('on', on);
+      detectionBadge.textContent = on ? '● Cello detected' : '● Not detecting';
+    }
+
     // ── Wake Lock ─────────────────────────────────────────────────────────────
     async function requestWakeLock() {
       if (!('wakeLock' in navigator)) { setWakeLockStatus('unavailable'); return; }
@@ -202,9 +302,7 @@
         wakeLock.addEventListener('release', () => {
           if (isSessionActive) setWakeLockStatus('released');
         });
-      } catch {
-        setWakeLockStatus('unavailable');
-      }
+      } catch { setWakeLockStatus('unavailable'); }
     }
 
     function releaseWakeLock() {
@@ -220,52 +318,85 @@
       ctx.scale(dpr, dpr);
     }
 
-    function drawFlatline() {
+    function drawIdle() {
       const W = canvas.offsetWidth;
       const H = canvas.offsetHeight;
       ctx.fillStyle = '#0f1117';
       ctx.fillRect(0, 0, W, H);
-      ctx.lineWidth   = 1.5;
-      ctx.strokeStyle = '#2a2d3a';
-      ctx.beginPath();
-      ctx.moveTo(0, H / 2);
-      ctx.lineTo(W, H / 2);
-      ctx.stroke();
+      const barW = W / NUM_BARS;
+      const gap  = Math.max(1, barW * 0.2);
+      for (let i = 0; i < NUM_BARS; i++) {
+        ctx.fillStyle = barDefs[i].isCello ? '#1a3a28' : '#161920';
+        ctx.fillRect(i * barW + gap / 2, H - 2, barW - gap, 2);
+      }
     }
 
     function draw() {
       rafId = requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(dataArray);
+      analyser.getByteFrequencyData(freqData);
 
       const W = canvas.offsetWidth;
       const H = canvas.offsetHeight;
+
       ctx.fillStyle = '#0f1117';
       ctx.fillRect(0, 0, W, H);
 
-      ctx.lineWidth   = 1.5;
-      ctx.strokeStyle = '#00ff9f';
-      ctx.beginPath();
+      const barW = W / NUM_BARS;
+      const gap  = Math.max(1, barW * 0.2);
 
-      const sliceWidth = W / dataArray.length;
-      let x = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v / 2) * H;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        x += sliceWidth;
+      let cellobandSum = 0, celloBandCount = 0;
+
+      for (let i = 0; i < NUM_BARS; i++) {
+        const val  = getBarValue(barDefs[i]);
+        const barH = (val / 255) * H;
+
+        if (barDefs[i].isCello) {
+          ctx.fillStyle = '#00cc7a';
+          cellobandSum += val;
+          celloBandCount++;
+        } else {
+          ctx.fillStyle = '#2a3a32';
+        }
+
+        ctx.fillRect(i * barW + gap / 2, H - barH, barW - gap, barH);
       }
-      ctx.lineTo(W, H / 2);
-      ctx.stroke();
 
-      // Update elapsed in status each frame
-      setStatus(`Recording — ${formatElapsed(Date.now() - sessionStart)}`);
+      // Detection debounce (time-based, frame-rate independent)
+      const now = performance.now();
+      const dt  = lastFrameTime ? Math.min(now - lastFrameTime, 100) : 16;
+      lastFrameTime = now;
+
+      const cellobandAvg = celloBandCount > 0 ? cellobandSum / celloBandCount : 0;
+
+      if (cellobandAvg > threshold) {
+        belowMs = 0;
+        aboveMs += dt;
+        if (!isDetected && aboveMs >= ATTACK_MS) setDetection(true);
+      } else {
+        aboveMs = 0;
+        belowMs += dt;
+        if (isDetected && belowMs >= RELEASE_MS) setDetection(false);
+      }
+
+      // Threshold line — dashed, changes color when detection is active
+      const thresholdY = H - (threshold / 255) * H;
+      ctx.strokeStyle = isDetected ? '#00ff9f' : '#555';
+      ctx.lineWidth   = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, thresholdY);
+      ctx.lineTo(W, thresholdY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
     }
 
     function stopRafLoop() {
       if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
     }
 
-    // ── Mic restart (for recovery) ────────────────────────────────────────────
+    // ── Mic restart (recovery) ────────────────────────────────────────────────
     async function restartMicStream() {
       if (stream) stream.getTracks().forEach(t => t.stop());
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -279,7 +410,8 @@
       isSessionActive = false;
       stopRafLoop();
       releaseWakeLock();
-      drawFlatline();
+      setDetection(false);
+      drawIdle();
       setButtonActive(false);
       btn.disabled = false;
 
@@ -296,15 +428,13 @@
       setStatus('Reconnecting…');
       try {
         if (audioCtx.state === 'suspended') await audioCtx.resume();
-
         const track = stream?.getAudioTracks()[0];
         if (!track || track.readyState === 'ended') {
           setStatus('Reconnecting — requesting microphone…');
           await restartMicStream();
         }
-
         await requestWakeLock();
-        setStatus(`Recording — ${formatElapsed(Date.now() - sessionStart)}`);
+        setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
       } catch (err) {
         handleUnrecoverableError(err);
       } finally {
@@ -349,17 +479,23 @@
       }
 
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0;
+      analyser.fftSize = FFT_SIZE;
+      analyser.smoothingTimeConstant = 0.75;
 
       sourceNode = audioCtx.createMediaStreamSource(stream);
       sourceNode.connect(analyser);
       // NOT connected to destination — analysis only, no feedback
 
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      freqData = new Uint8Array(analyser.frequencyBinCount);
 
       sizeCanvas();
       await requestWakeLock();
+
+      isDetected    = false;
+      aboveMs       = 0;
+      belowMs       = 0;
+      lastFrameTime = null;
+      setDetection(false);
 
       sessionStart    = Date.now();
       isSessionActive = true;
@@ -379,26 +515,24 @@
       if (audioCtx) { audioCtx.close(); audioCtx = null; }
       sourceNode = null;
       analyser   = null;
-      dataArray  = null;
+      freqData   = null;
       sessionStart = null;
 
-      drawFlatline();
+      setDetection(false);
+      drawIdle();
       setButtonActive(false);
       setStatus('Idle');
     }
 
     // ── Button handler ────────────────────────────────────────────────────────
     btn.addEventListener('click', () => {
-      if (isSessionActive) {
-        stopSession();
-      } else {
-        startSession();
-      }
+      if (isSessionActive) stopSession();
+      else startSession();
     });
 
     // ── Init ──────────────────────────────────────────────────────────────────
     sizeCanvas();
-    drawFlatline();
+    drawIdle();
   </script>
 
 </body>

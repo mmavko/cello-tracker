@@ -10,29 +10,30 @@ The screen stays on the whole time (Wake Lock API), so you can glance at the tim
 
 ## Status
 
-**PoC validated.** The two technical unknowns — Wake Lock and continuous mic access on iOS Safari — are both confirmed working. A 3-minute live test on iPhone showed the waveform responding to sound and the screen staying on throughout, then locking normally after Stop.
-
-The cello detection logic (frequency filtering, amplitude thresholding) has not been built yet. That is the next step.
+**Detection layer built, pending real-device testing.** The oscilloscope PoC has been replaced with a spectrum analyzer and cello detection logic. Next: validate detection quality on iPhone, then build the practice timer on top.
 
 ## Repo Structure
 
 ```
-sound-analysis/     — technical PoC (single HTML file)
-  spec.md           — detailed spec for the PoC
-  index.html        — the built app: mic → waveform → wake lock
+sound-analysis/     — the app (single HTML file, no build step)
+  index.html        — mic → FFT spectrum → cello detection
+  spec.md           — original PoC spec (platform validation)
 chronicles.md       — session-by-session log of findings and decisions
 ```
 
-## The PoC (`sound-analysis/`)
+## The App (`sound-analysis/index.html`)
 
 A single `index.html` with no dependencies or build step. It:
 
-- Requests mic access only on user tap (not on load — browsers block that)
-- Pipes audio through `getUserMedia` → `MediaStreamAudioSourceNode` → `AnalyserNode`, deliberately **not** connected to the speaker (no feedback)
-- Draws a live oscilloscope waveform on a canvas
+- Requests mic access only on user tap
+- Pipes audio through `getUserMedia` → `MediaStreamAudioSourceNode` → `AnalyserNode` (not connected to speaker — no feedback)
+- Runs FFT analysis and displays a **spectrum analyzer**: 80 bars on a logarithmic frequency scale (30 Hz – 8 kHz)
+- Highlights the **cello band** (65–1200 Hz) in a distinct color — only those bars feed the detection signal
+- Draws a **threshold line** across the canvas; a slider moves it in real time
+- Detects cello when the average energy across cello-band bars sustains above the threshold for 300ms; stops detecting after 1500ms of sustained silence
+- Detection badge flips between "Not detecting" and "Cello detected"; threshold line turns green when detection is active
 - Holds a Wake Lock so the screen stays on
-- Handles background recovery: if iOS suspends the tab (phone call, app switch), on return it resumes the `AudioContext` and restarts the mic track if it died
-- Shows the iOS-specific mic denial recovery instructions if permission is blocked
+- Handles background recovery: if iOS suspends the tab, on return it resumes the `AudioContext` and restarts the mic track if it died
 
 Deployed at **https://cello.mavko.consulting** (Cloudflare Pages, project: `cello-tracker`).
 
@@ -45,5 +46,6 @@ Note: when adding a custom domain, use the CF dashboard (Pages → project → C
 
 ## What's Next
 
-1. **Cello detection** — filter the audio signal by cello's frequency range (~65–1000 Hz fundamental + overtones), apply an amplitude threshold to distinguish playing from ambient noise, and drive the session timer from that signal rather than from simple elapsed time.
-2. **Real tracker app** — once detection is reliable, build the actual UI: a clean timer display, session history, maybe a simple chart. The deployment setup will change at that point.
+1. **Validate detection on iPhone** — tune the threshold slider during a real practice session; check for over-detection (ambient noise triggering) and under-detection (soft passages not triggering). Adjust attack/release timing or switch from average to a different aggregation if needed.
+2. **Practice timer** — once detection is reliable, wire the timer to the detection signal: timer only increments while cello is detected. Display active practice time prominently.
+3. **Session summary** — at stop, show total session time vs. actual practice time.
