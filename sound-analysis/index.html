@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f1117" />
+  <title>Audio Wave Monitor</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --text: #e0e0e0;
+      --text-muted: #888;
+      --accent: #00ff9f;
+      --start-bg: #1a3a28;
+      --start-color: #00ff9f;
+      --stop-bg: #3a1a1a;
+      --stop-color: #ff5555;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1.25rem;
+      gap: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text);
+    }
+
+    #btn-toggle {
+      min-width: 200px;
+      min-height: 56px;
+      padding: 0 2rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      background: var(--start-bg);
+      color: var(--start-color);
+      border: 1.5px solid var(--start-color);
+    }
+
+    #btn-toggle.active {
+      background: var(--stop-bg);
+      color: var(--stop-color);
+      border-color: var(--stop-color);
+    }
+
+    #btn-toggle:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #status {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      text-align: center;
+      min-height: 1.4em;
+    }
+
+    .canvas-wrap {
+      width: 100%;
+      max-width: 600px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--bg);
+      border: 1px solid #2a2d3a;
+    }
+
+    #waveform {
+      display: block;
+      width: 100%;
+      height: 200px;
+    }
+
+    #wake-lock-status {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    #https-warning {
+      display: none;
+      background: #3a1a1a;
+      color: #ff5555;
+      border: 1px solid #ff5555;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    #mic-denied-hint {
+      display: none;
+      background: var(--surface);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Audio Wave Monitor</h1>
+
+  <div id="https-warning">⚠️ HTTPS required — mic and wake lock will not work over HTTP.</div>
+
+  <button id="btn-toggle">▶ Start Session</button>
+
+  <p id="status">Status: Idle</p>
+
+  <div class="canvas-wrap">
+    <canvas id="waveform"></canvas>
+  </div>
+
+  <p id="wake-lock-status">Wake lock: —</p>
+
+  <p id="mic-denied-hint">
+    Microphone access was denied.<br>
+    On iOS: <strong>Settings → Safari → Microphone → Allow</strong>
+  </p>
+
+  <script>
+    // ── Elements ──────────────────────────────────────────────────────────────
+    const btn       = document.getElementById('btn-toggle');
+    const statusEl  = document.getElementById('status');
+    const canvas    = document.getElementById('waveform');
+    const ctx       = canvas.getContext('2d');
+    const wlEl      = document.getElementById('wake-lock-status');
+    const deniedEl  = document.getElementById('mic-denied-hint');
+    const httpsWarn = document.getElementById('https-warning');
+
+    // ── HTTPS guard ───────────────────────────────────────────────────────────
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      httpsWarn.style.display = 'block';
+    }
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let isSessionActive = false;
+    let isRecovering    = false;
+    let sessionStart    = null;
+    let rafId           = null;
+    let wakeLock        = null;
+    let audioCtx        = null;
+    let analyser        = null;
+    let stream          = null;
+    let sourceNode      = null;
+    let dataArray       = null;
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function setStatus(text) {
+      statusEl.textContent = 'Status: ' + text;
+    }
+
+    function formatElapsed(ms) {
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    }
+
+    function setWakeLockStatus(state) {
+      const labels = {
+        active:      'Wake lock: active 🟢',
+        released:    'Wake lock: released (tab hidden) 🟡',
+        unavailable: 'Wake lock: unavailable 🔴',
+        idle:        'Wake lock: —',
+      };
+      wlEl.textContent = labels[state] ?? 'Wake lock: —';
+    }
+
+    function setButtonActive(active) {
+      btn.classList.toggle('active', active);
+      btn.textContent = active ? '■ Stop Session' : '▶ Start Session';
+    }
+
+    // ── Wake Lock ─────────────────────────────────────────────────────────────
+    async function requestWakeLock() {
+      if (!('wakeLock' in navigator)) { setWakeLockStatus('unavailable'); return; }
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        setWakeLockStatus('active');
+        wakeLock.addEventListener('release', () => {
+          if (isSessionActive) setWakeLockStatus('released');
+        });
+      } catch {
+        setWakeLockStatus('unavailable');
+      }
+    }
+
+    function releaseWakeLock() {
+      if (wakeLock) { wakeLock.release(); wakeLock = null; }
+      setWakeLockStatus('idle');
+    }
+
+    // ── Canvas ────────────────────────────────────────────────────────────────
+    function sizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width  = canvas.offsetWidth  * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      ctx.scale(dpr, dpr);
+    }
+
+    function drawFlatline() {
+      const W = canvas.offsetWidth;
+      const H = canvas.offsetHeight;
+      ctx.fillStyle = '#0f1117';
+      ctx.fillRect(0, 0, W, H);
+      ctx.lineWidth   = 1.5;
+      ctx.strokeStyle = '#2a2d3a';
+      ctx.beginPath();
+      ctx.moveTo(0, H / 2);
+      ctx.lineTo(W, H / 2);
+      ctx.stroke();
+    }
+
+    function draw() {
+      rafId = requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(dataArray);
+
+      const W = canvas.offsetWidth;
+      const H = canvas.offsetHeight;
+      ctx.fillStyle = '#0f1117';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.lineWidth   = 1.5;
+      ctx.strokeStyle = '#00ff9f';
+      ctx.beginPath();
+
+      const sliceWidth = W / dataArray.length;
+      let x = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v / 2) * H;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.lineTo(W, H / 2);
+      ctx.stroke();
+
+      // Update elapsed in status each frame
+      setStatus(`Recording — ${formatElapsed(Date.now() - sessionStart)}`);
+    }
+
+    function stopRafLoop() {
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    }
+
+    // ── Mic restart (for recovery) ────────────────────────────────────────────
+    async function restartMicStream() {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      if (sourceNode) sourceNode.disconnect();
+      sourceNode = audioCtx.createMediaStreamSource(stream);
+      sourceNode.connect(analyser);
+    }
+
+    // ── Error recovery ────────────────────────────────────────────────────────
+    function handleUnrecoverableError(err) {
+      isSessionActive = false;
+      stopRafLoop();
+      releaseWakeLock();
+      drawFlatline();
+      setButtonActive(false);
+      btn.disabled = false;
+
+      if (err?.name === 'NotAllowedError') {
+        setStatus('Microphone access lost — session ended. Tap Start to try again.');
+        deniedEl.style.display = 'block';
+      } else {
+        setStatus(`Session interrupted — ${err?.message ?? 'unknown error'}. Tap Start to try again.`);
+      }
+    }
+
+    async function recoverSession() {
+      isRecovering = true;
+      setStatus('Reconnecting…');
+      try {
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+        const track = stream?.getAudioTracks()[0];
+        if (!track || track.readyState === 'ended') {
+          setStatus('Reconnecting — requesting microphone…');
+          await restartMicStream();
+        }
+
+        await requestWakeLock();
+        setStatus(`Recording — ${formatElapsed(Date.now() - sessionStart)}`);
+      } catch (err) {
+        handleUnrecoverableError(err);
+      } finally {
+        isRecovering = false;
+      }
+    }
+
+    document.addEventListener('visibilitychange', async () => {
+      if (!isSessionActive || document.visibilityState !== 'visible') return;
+      if (isRecovering) return;
+      await recoverSession();
+    });
+
+    // ── Session start ─────────────────────────────────────────────────────────
+    async function startSession() {
+      btn.disabled = true;
+      deniedEl.style.display = 'none';
+      setStatus('Requesting microphone…');
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch (err) {
+        if (err.name === 'NotAllowedError') {
+          setStatus('Error — Microphone access denied. Check browser settings.');
+          deniedEl.style.display = 'block';
+        } else if (err.name === 'NotFoundError') {
+          setStatus('Error — No microphone found on this device.');
+        } else {
+          setStatus(`Error — ${err.message}`);
+        }
+        btn.disabled = false;
+        return;
+      }
+
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch {
+        stream.getTracks().forEach(t => t.stop());
+        setStatus('Error — Web Audio not supported in this browser.');
+        btn.disabled = false;
+        return;
+      }
+
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0;
+
+      sourceNode = audioCtx.createMediaStreamSource(stream);
+      sourceNode.connect(analyser);
+      // NOT connected to destination — analysis only, no feedback
+
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      sizeCanvas();
+      await requestWakeLock();
+
+      sessionStart    = Date.now();
+      isSessionActive = true;
+      setButtonActive(true);
+      btn.disabled = false;
+
+      draw();
+    }
+
+    // ── Session stop ──────────────────────────────────────────────────────────
+    function stopSession() {
+      isSessionActive = false;
+      stopRafLoop();
+      releaseWakeLock();
+
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      sourceNode = null;
+      analyser   = null;
+      dataArray  = null;
+      sessionStart = null;
+
+      drawFlatline();
+      setButtonActive(false);
+      setStatus('Idle');
+    }
+
+    // ── Button handler ────────────────────────────────────────────────────────
+    btn.addEventListener('click', () => {
+      if (isSessionActive) {
+        stopSession();
+      } else {
+        startSession();
+      }
+    });
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    sizeCanvas();
+    drawFlatline();
+  </script>
+
+</body>
+</html>
