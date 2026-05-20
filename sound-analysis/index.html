@@ -177,8 +177,8 @@
 
   <div class="threshold-row">
     <label for="threshold-slider">Threshold</label>
-    <input id="threshold-slider" type="range" min="0" max="200" value="40" />
-    <span id="threshold-value">40</span>
+    <input id="threshold-slider" type="range" min="1" max="200" value="15" />
+    <span id="threshold-value">15</span>
   </div>
 
   <p id="wake-lock-status">Wake lock: —</p>
@@ -190,14 +190,15 @@
 
   <script>
     // ── Constants ─────────────────────────────────────────────────────────────
-    const NUM_BARS   = 80;
-    const MIN_FREQ   = 30;
-    const MAX_FREQ   = 8000;
-    const CELLO_LOW  = 65;
-    const CELLO_HIGH = 1200;
-    const FFT_SIZE   = 2048;
-    const ATTACK_MS  = 300;
-    const RELEASE_MS = 1500;
+    const NUM_BARS      = 80;
+    const MIN_FREQ      = 30;
+    const MAX_FREQ      = 4000;
+    const CELLO_LOW     = 65;
+    const CELLO_HIGH    = 1200;
+    const FFT_SIZE      = 4096;
+    const HPS_HARMONICS = 4;
+    const ATTACK_MS     = 300;
+    const RELEASE_MS    = 1500;
 
     // ── Elements ──────────────────────────────────────────────────────────────
     const btn            = document.getElementById('btn-toggle');
@@ -227,6 +228,7 @@
     let stream          = null;
     let sourceNode      = null;
     let freqData        = null;
+    let hpsArray        = null;
 
     let isDetected    = false;
     let aboveMs       = 0;
@@ -241,25 +243,60 @@
       sliderValueEl.textContent = threshold;
     });
 
-    // ── Bar frequency map (logarithmic) ───────────────────────────────────────
-    // Each bar covers a frequency range; bars in the cello band are flagged.
+    // ── Bar frequency map (logarithmic, 30 Hz – 4 kHz) ───────────────────────
     const barDefs = Array.from({ length: NUM_BARS }, (_, i) => {
       const f1 = MIN_FREQ * Math.pow(MAX_FREQ / MIN_FREQ, i / NUM_BARS);
       const f2 = MIN_FREQ * Math.pow(MAX_FREQ / MIN_FREQ, (i + 1) / NUM_BARS);
       return { f1, f2, isCello: f1 < CELLO_HIGH && f2 > CELLO_LOW };
     });
 
-    function getBarValue(bar) {
-      const nyquist  = audioCtx.sampleRate / 2;
-      const binCount = freqData.length;
-      const b1 = Math.round(bar.f1 / nyquist * binCount);
-      const b2 = Math.round(bar.f2 / nyquist * binCount);
+    // ── HPS ───────────────────────────────────────────────────────────────────
+
+    // Geometric mean of HPS harmonics, scaled to 0–255.
+    // A harmonic sound produces a spike at the fundamental; non-harmonic sounds
+    // (voice formants, broadband noise) produce a lower, flatter result.
+    function computeHPS() {
+      const len = hpsArray.length;
+      for (let i = 0; i < len; i++) {
+        let product = freqData[i];
+        for (let k = 2; k <= HPS_HARMONICS; k++) {
+          product *= freqData[k * i];
+        }
+        hpsArray[i] = Math.pow(product, 1 / HPS_HARMONICS);
+      }
+    }
+
+    function getHPSBarValue(bar) {
+      const binWidth = audioCtx.sampleRate / analyser.fftSize;
+      const b1 = Math.max(0, Math.round(bar.f1 / binWidth));
+      const b2 = Math.round(bar.f2 / binWidth);
       let sum = 0, count = 0;
-      for (let b = b1; b <= Math.min(b2, binCount - 1); b++) {
-        sum += freqData[b];
+      for (let b = b1; b <= Math.min(b2, hpsArray.length - 1); b++) {
+        sum += hpsArray[b];
         count++;
       }
       return count > 0 ? sum / count : 0;
+    }
+
+    // Returns the strongest HPS peak within the cello frequency range.
+    function findCelloPeak() {
+      const binWidth = audioCtx.sampleRate / analyser.fftSize;
+      const lowBin   = Math.max(1, Math.round(CELLO_LOW / binWidth));
+      const highBin  = Math.min(Math.round(CELLO_HIGH / binWidth), hpsArray.length - 1);
+      let peakBin = lowBin, peakVal = 0;
+      for (let i = lowBin; i <= highBin; i++) {
+        if (hpsArray[i] > peakVal) { peakVal = hpsArray[i]; peakBin = i; }
+      }
+      const freq   = Math.round(peakBin * binWidth);
+      const barIdx = barDefs.findIndex(b => freq >= b.f1 && freq < b.f2);
+      return { freq, val: peakVal, barIdx };
+    }
+
+    // ── Note name ─────────────────────────────────────────────────────────────
+    function freqToNote(freq) {
+      const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+      const midi  = Math.round(69 + 12 * Math.log2(freq / 440));
+      return names[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -334,26 +371,27 @@
     function draw() {
       rafId = requestAnimationFrame(draw);
       analyser.getByteFrequencyData(freqData);
+      computeHPS();
 
       const W = canvas.offsetWidth;
       const H = canvas.offsetHeight;
+      const barW = W / NUM_BARS;
+      const gap  = Math.max(1, barW * 0.2);
 
       ctx.fillStyle = '#0f1117';
       ctx.fillRect(0, 0, W, H);
 
-      const barW = W / NUM_BARS;
-      const gap  = Math.max(1, barW * 0.2);
-
-      let cellobandSum = 0, celloBandCount = 0;
+      const peak     = findCelloPeak();
+      const showPeak = peak.val > threshold * 0.3;
 
       for (let i = 0; i < NUM_BARS; i++) {
-        const val  = getBarValue(barDefs[i]);
+        const val  = getHPSBarValue(barDefs[i]);
         const barH = (val / 255) * H;
 
-        if (barDefs[i].isCello) {
+        if (i === peak.barIdx && showPeak) {
+          ctx.fillStyle = '#ffffff';
+        } else if (barDefs[i].isCello) {
           ctx.fillStyle = '#00cc7a';
-          cellobandSum += val;
-          celloBandCount++;
         } else {
           ctx.fillStyle = '#2a3a32';
         }
@@ -366,9 +404,7 @@
       const dt  = lastFrameTime ? Math.min(now - lastFrameTime, 100) : 16;
       lastFrameTime = now;
 
-      const cellobandAvg = celloBandCount > 0 ? cellobandSum / celloBandCount : 0;
-
-      if (cellobandAvg > threshold) {
+      if (peak.val > threshold) {
         belowMs = 0;
         aboveMs += dt;
         if (!isDetected && aboveMs >= ATTACK_MS) setDetection(true);
@@ -378,7 +414,7 @@
         if (isDetected && belowMs >= RELEASE_MS) setDetection(false);
       }
 
-      // Threshold line — dashed, changes color when detection is active
+      // Threshold line — dashed, turns green when detection is active
       const thresholdY = H - (threshold / 255) * H;
       ctx.strokeStyle = isDetected ? '#00ff9f' : '#555';
       ctx.lineWidth   = 1.5;
@@ -388,6 +424,13 @@
       ctx.lineTo(W, thresholdY);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Detected pitch label (visible as soon as a peak appears, before full detection fires)
+      if (showPeak) {
+        ctx.font      = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = isDetected ? '#00ff9f' : '#aaa';
+        ctx.fillText(`${freqToNote(peak.freq)}  ${peak.freq} Hz`, 8, 20);
+      }
 
       setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
     }
@@ -487,6 +530,7 @@
       // NOT connected to destination — analysis only, no feedback
 
       freqData = new Uint8Array(analyser.frequencyBinCount);
+      hpsArray = new Float32Array(Math.floor(analyser.frequencyBinCount / HPS_HARMONICS));
 
       sizeCanvas();
       await requestWakeLock();
@@ -513,9 +557,10 @@
 
       if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
       if (audioCtx) { audioCtx.close(); audioCtx = null; }
-      sourceNode = null;
-      analyser   = null;
-      freqData   = null;
+      sourceNode   = null;
+      analyser     = null;
+      freqData     = null;
+      hpsArray     = null;
       sessionStart = null;
 
       setDetection(false);

@@ -10,13 +10,13 @@ The screen stays on the whole time (Wake Lock API), so you can glance at the tim
 
 ## Status
 
-**Detection layer built, pending real-device testing.** The oscilloscope PoC has been replaced with a spectrum analyzer and cello detection logic. Next: validate detection quality on iPhone, then build the practice timer on top.
+**HPS-based detection running on iPhone, threshold tuning in progress.** Band-average detection was tested and rejected — no usable threshold existed across all cello registers. Rebuilt with Harmonic Product Spectrum (HPS), which detects the presence of a harmonic series rather than raw energy level.
 
 ## Repo Structure
 
 ```
 sound-analysis/     — the app (single HTML file, no build step)
-  index.html        — mic → FFT spectrum → cello detection
+  index.html        — mic → HPS detection → cello presence signal
   spec.md           — original PoC spec (platform validation)
 chronicles.md       — session-by-session log of findings and decisions
 ```
@@ -27,11 +27,11 @@ A single `index.html` with no dependencies or build step. It:
 
 - Requests mic access only on user tap
 - Pipes audio through `getUserMedia` → `MediaStreamAudioSourceNode` → `AnalyserNode` (not connected to speaker — no feedback)
-- Runs FFT analysis and displays a **spectrum analyzer**: 80 bars on a logarithmic frequency scale (30 Hz – 8 kHz)
-- Highlights the **cello band** (65–1200 Hz) in a distinct color — only those bars feed the detection signal
-- Draws a **threshold line** across the canvas; a slider moves it in real time
-- Detects cello when the average energy across cello-band bars sustains above the threshold for 300ms; stops detecting after 1500ms of sustained silence
-- Detection badge flips between "Not detecting" and "Cello detected"; threshold line turns green when detection is active
+- Computes **Harmonic Product Spectrum (HPS)**: multiplies the FFT against downsampled copies of itself at 2×, 3×, 4× — energy survives only where a full harmonic series is present. A cello note produces a sharp spike at the fundamental; voice formants and broadband noise collapse.
+- Displays the HPS output as **80 bars on a logarithmic scale (30 Hz – 4 kHz)**. The bar at the detected fundamental lights up white; note name and frequency (e.g. `G2  98 Hz`) shown in the canvas corner.
+- Cello-band bars (65–1200 Hz) highlighted; threshold line across the canvas moves with the slider
+- Detects cello when the HPS peak in the cello range sustains above threshold for 300ms; stops after 1500ms of silence
+- Detection badge flips between "Not detecting" and "Cello detected"; threshold line turns green when active
 - Holds a Wake Lock so the screen stays on
 - Handles background recovery: if iOS suspends the tab, on return it resumes the `AudioContext` and restarts the mic track if it died
 
@@ -46,6 +46,6 @@ Note: when adding a custom domain, use the CF dashboard (Pages → project → C
 
 ## What's Next
 
-1. **Validate detection on iPhone** — tune the threshold slider during a real practice session; check for over-detection (ambient noise triggering) and under-detection (soft passages not triggering). Adjust attack/release timing or switch from average to a different aggregation if needed.
-2. **Practice timer** — once detection is reliable, wire the timer to the detection signal: timer only increments while cello is detected. Display active practice time prominently.
+1. **Finish tuning HPS detection** — find the threshold that cleanly separates cello from ambient noise across all registers. Confirm over/under-detection is acceptable.
+2. **Practice timer** — wire the timer to the detection signal: timer only increments while cello is detected. Display active practice time prominently.
 3. **Session summary** — at stop, show total session time vs. actual practice time.
