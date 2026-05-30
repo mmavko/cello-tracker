@@ -1,7 +1,19 @@
-# Detection — design docs
+# Design docs
 
-This folder documents the upgrade path from "HPS alone" to a layered detection
-pipeline that rejects human voice during cello practice.
+Current technical design. For *why* we got here — past decisions, killed
+hypotheses, the arc — read `../chronicles.md`. This folder is what's true now;
+chronicles is how it became true.
+
+- **[platform-foundations.md](platform-foundations.md)** — mic permission flow,
+  audio pipeline, wake lock, iOS background recovery. Patterns implemented in
+  `app/index.html` that should not change without re-testing on a real iPhone.
+- **Detection pipeline** (this document below) — the upgrade path from
+  "HPS alone" to a layered detection pipeline that rejects human voice during
+  cello practice.
+
+---
+
+## Detection pipeline
 
 ## Why we need more than HPS
 
@@ -58,7 +70,7 @@ Implementation specs live in:
 
 Both docs are self-contained briefs for a coding agent: algorithm, parameter
 ranges, UI controls, visualizations, and integration points into the existing
-`sound-analysis/index.html`.
+`app/index.html`.
 
 ## Out of scope
 
