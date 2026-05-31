@@ -40,7 +40,7 @@ mic → FFT → HPS → f0 (existing)
                        Detection = AND of enabled gates
                                   │
                                   ▼
-                       Debounce (300ms attack / 1500ms release)
+                       Debounce (attack 30–400ms, default 60 / 1500ms release)
 ```
 
 Each gate has an on/off toggle, so during tuning you can isolate one at a time

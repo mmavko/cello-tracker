@@ -44,7 +44,7 @@ Navigating away and returning may re-prompt — Safari is conservative.
 ```
 getUserMedia (mic)
     └─→ MediaStreamAudioSourceNode
-            └─→ AnalyserNode  (fftSize: 4096, no smoothing)
+            └─→ AnalyserNode  (fftSize: 4096, light smoothing 0.35)
                     └─→ NOT connected to AudioContext.destination
                         (analysis only, no playback → no feedback)
 ```
@@ -54,7 +54,11 @@ Key settings:
 const analyser = audioCtx.createAnalyser();
 analyser.fftSize = 4096;            // bumped from 2048 for better low-freq
                                     // resolution (~10.8 Hz/bin at 48 kHz)
-analyser.smoothingTimeConstant = 0; // raw data, no smoothing
+analyser.smoothingTimeConstant = 0.35; // light smoothing — denoises the
+                                       // spectrum without masking short-note
+                                       // attacks. Higher values (e.g. 0.75)
+                                       // impose a ~130ms amplitude rise time
+                                       // that makes staccato notes undetectable.
 ```
 
 **Do NOT connect to `destination`.** That would feed mic audio through the

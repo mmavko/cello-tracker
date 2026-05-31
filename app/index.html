@@ -260,6 +260,13 @@
       <span class="unit"></span>
     </div>
 
+    <div class="slider-row">
+      <label for="attack-slider">Attack</label>
+      <input id="attack-slider" type="range" min="30" max="400" step="10" value="60" />
+      <span id="attack-value" class="value">60</span>
+      <span class="unit">ms</span>
+    </div>
+
     <label class="stability-toggle">
       <input type="checkbox" id="stability-enabled" checked />
       Stability gate
@@ -273,7 +280,7 @@
       </div>
       <div class="slider-row">
         <label for="duration-slider">Duration</label>
-        <input id="duration-slider" type="range" min="100" max="500" step="25" value="200" />
+        <input id="duration-slider" type="range" min="50" max="500" step="25" value="200" />
         <span id="duration-value" class="value">200</span>
         <span class="unit">ms</span>
       </div>
@@ -296,7 +303,6 @@
     const CELLO_HIGH         = 1200;
     const FFT_SIZE           = 4096;
     const HPS_HARMONICS      = 4;
-    const ATTACK_MS          = 300;
     const RELEASE_MS         = 1500;
     const STABILITY_WINDOW_MS = 500;
 
@@ -314,6 +320,8 @@
     const httpsWarn       = document.getElementById('https-warning');
     const sliderEl        = document.getElementById('threshold-slider');
     const sliderValueEl   = document.getElementById('threshold-value');
+    const attackSlider    = document.getElementById('attack-slider');
+    const attackValue     = document.getElementById('attack-value');
     const detectionBadge  = document.getElementById('detection-badge');
     const stabilityChk    = document.getElementById('stability-enabled');
     const toleranceSlider = document.getElementById('tolerance-slider');
@@ -352,6 +360,10 @@
     // ── Persisted settings ────────────────────────────────────────────────────
     let threshold = parseInt(sliderEl.value, 10);
 
+    let attackMs = parseInt(localStorage.getItem('detection.attackMs') || '60', 10);
+    attackSlider.value = attackMs;
+    attackValue.textContent = attackMs;
+
     let stabilityEnabled = localStorage.getItem('stability.enabled') !== 'false';
     stabilityChk.checked = stabilityEnabled;
 
@@ -366,6 +378,12 @@
     sliderEl.addEventListener('input', () => {
       threshold = parseInt(sliderEl.value, 10);
       sliderValueEl.textContent = threshold;
+    });
+
+    attackSlider.addEventListener('input', () => {
+      attackMs = parseInt(attackSlider.value, 10);
+      attackValue.textContent = attackMs;
+      localStorage.setItem('detection.attackMs', attackMs);
     });
 
     stabilityChk.addEventListener('change', () => {
@@ -687,7 +705,7 @@
       if (hpsPass && stabilityPass) {
         belowMs = 0;
         aboveMs += dt;
-        if (!isDetected && aboveMs >= ATTACK_MS) setDetection(true);
+        if (!isDetected && aboveMs >= attackMs) setDetection(true);
       } else {
         aboveMs = 0;
         belowMs += dt;
@@ -811,7 +829,7 @@
 
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = FFT_SIZE;
-      analyser.smoothingTimeConstant = 0.75;
+      analyser.smoothingTimeConstant = 0.35;
 
       sourceNode = audioCtx.createMediaStreamSource(stream);
       sourceNode.connect(analyser);

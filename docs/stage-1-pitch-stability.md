@@ -25,7 +25,7 @@ look harmonic) for free, because they don't last long enough to register as
 | Param | Range | Default | Notes |
 |---|---|---|---|
 | `stabilityToleranceCents` | 20 – 100 | 30 | How far f0 may wander from its running center and still count as "stable." Must accommodate cello vibrato (~±50 cents on heavy vibrato). |
-| `stabilityDurationMs` | 100 – 500 | 200 | How long f0 must remain inside the tolerance band before the gate opens. Trade-off: latency vs. transient rejection. |
+| `stabilityDurationMs` | 50 – 500 | 200 | How long f0 must remain inside the tolerance band before the gate opens. Trade-off: latency vs. transient rejection. Floor lowered to 50 to help catch staccato; the cents tolerance, not duration, does the real speech rejection. |
 | `stabilityWindowMs` | (fixed) 500 | — | Lookback window for computing the running center frequency (median of recent f0 samples). Not user-tunable. |
 
 ### Data structures
