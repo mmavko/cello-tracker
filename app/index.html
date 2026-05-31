@@ -82,32 +82,26 @@
       height: 240px;
     }
 
-    .threshold-row {
+    #f0-strip {
+      display: block;
+      width: 100%;
+      height: 60px;
+    }
+
+    #stability-progress-wrap {
       width: 100%;
       max-width: 600px;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+      height: 4px;
+      background: #1a3a28;
+      border-radius: 2px;
+      overflow: hidden;
     }
 
-    .threshold-row label {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-    }
-
-    #threshold-slider {
-      flex: 1;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-
-    #threshold-value {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      min-width: 2.5em;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
+    #stability-progress {
+      height: 100%;
+      width: 0%;
+      background: #1a3a28;
+      border-radius: 2px;
     }
 
     #detection-badge {
@@ -125,6 +119,79 @@
       background: #1a3a28;
       color: var(--accent);
       border-color: var(--accent);
+    }
+
+    #gate-status {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      min-height: 1.2em;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .slider-row label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 6em;
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .slider-row .value {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      min-width: 2.5em;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .slider-row .unit {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      min-width: 2.5em;
+    }
+
+    .stability-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .stability-toggle input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    .stability-sliders {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding-left: 1.5rem;
     }
 
     #wake-lock-status {
@@ -171,14 +238,46 @@
 
   <div id="detection-badge">● Not detecting</div>
 
+  <div id="gate-status"></div>
+
   <div class="canvas-wrap">
     <canvas id="spectrum"></canvas>
   </div>
 
-  <div class="threshold-row">
-    <label for="threshold-slider">Threshold</label>
-    <input id="threshold-slider" type="range" min="1" max="200" value="15" />
-    <span id="threshold-value">15</span>
+  <div class="canvas-wrap">
+    <canvas id="f0-strip"></canvas>
+  </div>
+
+  <div id="stability-progress-wrap">
+    <div id="stability-progress"></div>
+  </div>
+
+  <div class="controls">
+    <div class="slider-row">
+      <label for="threshold-slider">Threshold</label>
+      <input id="threshold-slider" type="range" min="1" max="200" value="15" />
+      <span id="threshold-value" class="value">15</span>
+      <span class="unit"></span>
+    </div>
+
+    <label class="stability-toggle">
+      <input type="checkbox" id="stability-enabled" checked />
+      Stability gate
+    </label>
+    <div class="stability-sliders">
+      <div class="slider-row">
+        <label for="tolerance-slider">Tolerance</label>
+        <input id="tolerance-slider" type="range" min="20" max="100" step="5" value="30" />
+        <span id="tolerance-value" class="value">30</span>
+        <span class="unit">cents</span>
+      </div>
+      <div class="slider-row">
+        <label for="duration-slider">Duration</label>
+        <input id="duration-slider" type="range" min="100" max="500" step="25" value="200" />
+        <span id="duration-value" class="value">200</span>
+        <span class="unit">ms</span>
+      </div>
+    </div>
   </div>
 
   <p id="wake-lock-status">Wake lock: —</p>
@@ -190,27 +289,37 @@
 
   <script>
     // ── Constants ─────────────────────────────────────────────────────────────
-    const NUM_BARS      = 80;
-    const MIN_FREQ      = 30;
-    const MAX_FREQ      = 4000;
-    const CELLO_LOW     = 65;
-    const CELLO_HIGH    = 1200;
-    const FFT_SIZE      = 4096;
-    const HPS_HARMONICS = 4;
-    const ATTACK_MS     = 300;
-    const RELEASE_MS    = 1500;
+    const NUM_BARS           = 80;
+    const MIN_FREQ           = 30;
+    const MAX_FREQ           = 4000;
+    const CELLO_LOW          = 65;
+    const CELLO_HIGH         = 1200;
+    const FFT_SIZE           = 4096;
+    const HPS_HARMONICS      = 4;
+    const ATTACK_MS          = 300;
+    const RELEASE_MS         = 1500;
+    const STABILITY_WINDOW_MS = 500;
 
     // ── Elements ──────────────────────────────────────────────────────────────
-    const btn            = document.getElementById('btn-toggle');
-    const statusEl       = document.getElementById('status');
-    const canvas         = document.getElementById('spectrum');
-    const ctx            = canvas.getContext('2d');
-    const wlEl           = document.getElementById('wake-lock-status');
-    const deniedEl       = document.getElementById('mic-denied-hint');
-    const httpsWarn      = document.getElementById('https-warning');
-    const sliderEl       = document.getElementById('threshold-slider');
-    const sliderValueEl  = document.getElementById('threshold-value');
-    const detectionBadge = document.getElementById('detection-badge');
+    const btn             = document.getElementById('btn-toggle');
+    const statusEl        = document.getElementById('status');
+    const canvas          = document.getElementById('spectrum');
+    const ctx             = canvas.getContext('2d');
+    const f0Canvas        = document.getElementById('f0-strip');
+    const f0Ctx           = f0Canvas.getContext('2d');
+    const progressBarEl   = document.getElementById('stability-progress');
+    const gateStatusEl    = document.getElementById('gate-status');
+    const wlEl            = document.getElementById('wake-lock-status');
+    const deniedEl        = document.getElementById('mic-denied-hint');
+    const httpsWarn       = document.getElementById('https-warning');
+    const sliderEl        = document.getElementById('threshold-slider');
+    const sliderValueEl   = document.getElementById('threshold-value');
+    const detectionBadge  = document.getElementById('detection-badge');
+    const stabilityChk    = document.getElementById('stability-enabled');
+    const toleranceSlider = document.getElementById('tolerance-slider');
+    const toleranceValue  = document.getElementById('tolerance-value');
+    const durationSlider  = document.getElementById('duration-slider');
+    const durationValue   = document.getElementById('duration-value');
 
     // ── HTTPS guard ───────────────────────────────────────────────────────────
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -235,12 +344,45 @@
     let belowMs       = 0;
     let lastFrameTime = null;
 
-    // ── Slider ────────────────────────────────────────────────────────────────
+    // Stability gate state
+    let f0History           = [];
+    let stabilityGate       = false;
+    let stabilityProgressMs = 0;
+
+    // ── Persisted settings ────────────────────────────────────────────────────
     let threshold = parseInt(sliderEl.value, 10);
+
+    let stabilityEnabled = localStorage.getItem('stability.enabled') !== 'false';
+    stabilityChk.checked = stabilityEnabled;
+
+    let stabilityToleranceCents = parseInt(localStorage.getItem('stability.toleranceCents') || '30', 10);
+    toleranceSlider.value = stabilityToleranceCents;
+    toleranceValue.textContent = stabilityToleranceCents;
+
+    let stabilityDurationMs = parseInt(localStorage.getItem('stability.durationMs') || '200', 10);
+    durationSlider.value = stabilityDurationMs;
+    durationValue.textContent = stabilityDurationMs;
 
     sliderEl.addEventListener('input', () => {
       threshold = parseInt(sliderEl.value, 10);
       sliderValueEl.textContent = threshold;
+    });
+
+    stabilityChk.addEventListener('change', () => {
+      stabilityEnabled = stabilityChk.checked;
+      localStorage.setItem('stability.enabled', stabilityEnabled);
+    });
+
+    toleranceSlider.addEventListener('input', () => {
+      stabilityToleranceCents = parseInt(toleranceSlider.value, 10);
+      toleranceValue.textContent = stabilityToleranceCents;
+      localStorage.setItem('stability.toleranceCents', stabilityToleranceCents);
+    });
+
+    durationSlider.addEventListener('input', () => {
+      stabilityDurationMs = parseInt(durationSlider.value, 10);
+      durationValue.textContent = stabilityDurationMs;
+      localStorage.setItem('stability.durationMs', stabilityDurationMs);
     });
 
     // ── Bar frequency map (logarithmic, 30 Hz – 4 kHz) ───────────────────────
@@ -253,8 +395,6 @@
     // ── HPS ───────────────────────────────────────────────────────────────────
 
     // Geometric mean of HPS harmonics, scaled to 0–255.
-    // A harmonic sound produces a spike at the fundamental; non-harmonic sounds
-    // (voice formants, broadband noise) produce a lower, flatter result.
     function computeHPS() {
       const len = hpsArray.length;
       for (let i = 0; i < len; i++) {
@@ -290,6 +430,133 @@
       const freq   = Math.round(peakBin * binWidth);
       const barIdx = barDefs.findIndex(b => freq >= b.f1 && freq < b.f2);
       return { freq, val: peakVal, barIdx };
+    }
+
+    // ── Stability gate ────────────────────────────────────────────────────────
+    function medianOf(arr) {
+      const sorted = arr.slice().sort((a, b) => a - b);
+      return sorted[Math.floor(sorted.length / 2)];
+    }
+
+    function computeStability(peak, dt) {
+      const now = performance.now();
+
+      if (peak.val > 0) {
+        f0History.push({ timeMs: now, freq: peak.freq });
+      }
+      const cutoff = now - STABILITY_WINDOW_MS;
+      while (f0History.length > 0 && f0History[0].timeMs < cutoff) {
+        f0History.shift();
+      }
+
+      if (f0History.length < 3) {
+        stabilityGate = false;
+        stabilityProgressMs = 0;
+        return;
+      }
+
+      const center = medianOf(f0History.map(s => s.freq));
+      const cents  = Math.abs(1200 * Math.log2(peak.freq / center));
+
+      if (cents <= stabilityToleranceCents) {
+        stabilityProgressMs += dt;
+        if (stabilityProgressMs >= stabilityDurationMs) {
+          stabilityGate = true;
+        }
+      } else {
+        stabilityProgressMs = 0;
+        stabilityGate = false;
+      }
+    }
+
+    // ── f0 history strip ──────────────────────────────────────────────────────
+    function logFreqToY(freq, H) {
+      const logMin = Math.log2(CELLO_LOW);
+      const logMax = Math.log2(CELLO_HIGH);
+      const clamped = Math.max(CELLO_LOW, Math.min(CELLO_HIGH, freq));
+      return H - ((Math.log2(clamped) - logMin) / (logMax - logMin)) * H;
+    }
+
+    function drawF0Strip() {
+      const W = f0Canvas.offsetWidth;
+      const H = f0Canvas.offsetHeight;
+
+      f0Ctx.fillStyle = '#0f1117';
+      f0Ctx.fillRect(0, 0, W, H);
+
+      if (f0History.length < 2) return;
+
+      const now    = performance.now();
+      const center = medianOf(f0History.map(s => s.freq));
+
+      // Tolerance band centered on running median
+      const bandHigh = center * Math.pow(2,  stabilityToleranceCents / 1200);
+      const bandLow  = center * Math.pow(2, -stabilityToleranceCents / 1200);
+      const bandTopY = logFreqToY(bandHigh, H);
+      const bandBotY = logFreqToY(bandLow,  H);
+      f0Ctx.fillStyle = 'rgba(0, 255, 159, 0.08)';
+      f0Ctx.fillRect(0, bandTopY, W, bandBotY - bandTopY);
+
+      // Determine line color based on whether current f0 is inside the band
+      const lastFreq  = f0History[f0History.length - 1].freq;
+      const lastCents = Math.abs(1200 * Math.log2(lastFreq / center));
+      const inBand    = lastCents <= stabilityToleranceCents;
+
+      f0Ctx.strokeStyle = inBand ? '#00ff9f' : '#666';
+      f0Ctx.lineWidth   = 1.5;
+      f0Ctx.beginPath();
+
+      const windowStart = now - STABILITY_WINDOW_MS;
+      let started = false;
+      for (const sample of f0History) {
+        const x = ((sample.timeMs - windowStart) / STABILITY_WINDOW_MS) * W;
+        const y = logFreqToY(sample.freq, H);
+        if (!started) { f0Ctx.moveTo(x, y); started = true; }
+        else           { f0Ctx.lineTo(x, y); }
+      }
+      f0Ctx.stroke();
+    }
+
+    function drawF0Idle() {
+      const W = f0Canvas.offsetWidth;
+      const H = f0Canvas.offsetHeight;
+      f0Ctx.fillStyle = '#0f1117';
+      f0Ctx.fillRect(0, 0, W, H);
+    }
+
+    // ── Stability progress bar ────────────────────────────────────────────────
+    function updateProgressBar() {
+      const pct = stabilityDurationMs > 0
+        ? Math.min(stabilityProgressMs / stabilityDurationMs, 1) * 100
+        : 0;
+      progressBarEl.style.width = pct + '%';
+      progressBarEl.style.background = stabilityGate ? '#00ff9f'
+                                      : pct > 0      ? '#00cc7a'
+                                                     : '#1a3a28';
+    }
+
+    function resetProgressBar() {
+      progressBarEl.style.width = '0%';
+      progressBarEl.style.background = '#1a3a28';
+    }
+
+    // ── Gate status strip ─────────────────────────────────────────────────────
+    function dot(pass) {
+      return pass
+        ? '<span style="color:#00ff9f">●</span>'
+        : '<span style="color:#444">○</span>';
+    }
+
+    function updateGateStatus(hpsPass) {
+      let html = `HPS: ${dot(hpsPass)}`;
+      if (stabilityEnabled) {
+        html += `<span style="margin-left:1rem">Stability: ${dot(stabilityGate)}</span>`;
+      }
+      gateStatusEl.innerHTML = html;
+    }
+
+    function clearGateStatus() {
+      gateStatusEl.innerHTML = '';
     }
 
     // ── Note name ─────────────────────────────────────────────────────────────
@@ -347,7 +614,7 @@
       setWakeLockStatus('idle');
     }
 
-    // ── Canvas ────────────────────────────────────────────────────────────────
+    // ── Canvas sizing ─────────────────────────────────────────────────────────
     function sizeCanvas() {
       const dpr = window.devicePixelRatio || 1;
       canvas.width  = canvas.offsetWidth  * dpr;
@@ -355,6 +622,14 @@
       ctx.scale(dpr, dpr);
     }
 
+    function sizeF0Canvas() {
+      const dpr = window.devicePixelRatio || 1;
+      f0Canvas.width  = f0Canvas.offsetWidth  * dpr;
+      f0Canvas.height = f0Canvas.offsetHeight * dpr;
+      f0Ctx.scale(dpr, dpr);
+    }
+
+    // ── Spectrum canvas draw ──────────────────────────────────────────────────
     function drawIdle() {
       const W = canvas.offsetWidth;
       const H = canvas.offsetHeight;
@@ -399,12 +674,17 @@
         ctx.fillRect(i * barW + gap / 2, H - barH, barW - gap, barH);
       }
 
-      // Detection debounce (time-based, frame-rate independent)
       const now = performance.now();
       const dt  = lastFrameTime ? Math.min(now - lastFrameTime, 100) : 16;
       lastFrameTime = now;
 
-      if (peak.val > threshold) {
+      // Stage 1: pitch stability gate
+      computeStability(peak, dt);
+
+      const hpsPass      = peak.val > threshold;
+      const stabilityPass = !stabilityEnabled || stabilityGate;
+
+      if (hpsPass && stabilityPass) {
         belowMs = 0;
         aboveMs += dt;
         if (!isDetected && aboveMs >= ATTACK_MS) setDetection(true);
@@ -425,12 +705,17 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Detected pitch label (visible as soon as a peak appears, before full detection fires)
+      // Detected pitch label
       if (showPeak) {
         ctx.font      = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.fillStyle = isDetected ? '#00ff9f' : '#aaa';
         ctx.fillText(`${freqToNote(peak.freq)}  ${peak.freq} Hz`, 8, 20);
       }
+
+      // Stage 1 visualizations
+      drawF0Strip();
+      updateProgressBar();
+      updateGateStatus(hpsPass);
 
       setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
     }
@@ -454,7 +739,10 @@
       stopRafLoop();
       releaseWakeLock();
       setDetection(false);
+      clearGateStatus();
+      resetProgressBar();
       drawIdle();
+      drawF0Idle();
       setButtonActive(false);
       btn.disabled = false;
 
@@ -533,13 +821,19 @@
       hpsArray = new Float32Array(Math.floor(analyser.frequencyBinCount / HPS_HARMONICS));
 
       sizeCanvas();
+      sizeF0Canvas();
       await requestWakeLock();
 
-      isDetected    = false;
-      aboveMs       = 0;
-      belowMs       = 0;
-      lastFrameTime = null;
+      isDetected          = false;
+      aboveMs             = 0;
+      belowMs             = 0;
+      lastFrameTime       = null;
+      f0History           = [];
+      stabilityGate       = false;
+      stabilityProgressMs = 0;
       setDetection(false);
+      clearGateStatus();
+      resetProgressBar();
 
       sessionStart    = Date.now();
       isSessionActive = true;
@@ -563,8 +857,15 @@
       hpsArray     = null;
       sessionStart = null;
 
+      f0History           = [];
+      stabilityGate       = false;
+      stabilityProgressMs = 0;
+
       setDetection(false);
+      clearGateStatus();
+      resetProgressBar();
       drawIdle();
+      drawF0Idle();
       setButtonActive(false);
       setStatus('Idle');
     }
@@ -577,7 +878,9 @@
 
     // ── Init ──────────────────────────────────────────────────────────────────
     sizeCanvas();
+    sizeF0Canvas();
     drawIdle();
+    drawF0Idle();
   </script>
 
 </body>
