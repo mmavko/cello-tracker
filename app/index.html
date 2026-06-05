@@ -32,76 +32,42 @@
       gap: 1.5rem;
     }
 
+    .topbar {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
     h1 {
       font-size: 1.25rem;
       font-weight: 600;
       letter-spacing: 0.02em;
     }
 
-    #btn-toggle {
-      min-width: 200px;
-      min-height: 56px;
-      padding: 0 2rem;
-      border: 1.5px solid var(--start-color);
-      border-radius: 12px;
-      font-size: 1.1rem;
-      font-weight: 600;
-      cursor: pointer;
-      background: var(--start-bg);
-      color: var(--start-color);
-      transition: opacity 0.15s;
-    }
-
-    #btn-toggle.active {
-      background: var(--stop-bg);
-      color: var(--stop-color);
-      border-color: var(--stop-color);
-    }
-
-    #btn-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    #status {
-      font-size: 0.95rem;
+    .nav-link {
+      font-size: 0.85rem;
       color: var(--text-muted);
-      text-align: center;
-      min-height: 1.4em;
+      text-decoration: none;
+    }
+    .nav-link:hover { color: var(--accent); }
+
+    /* The headline: accumulated playing time */
+    .timer {
+      font-size: 4rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.01em;
+      line-height: 1.1;
+      margin-top: 0.5rem;
     }
 
-    .canvas-wrap {
-      width: 100%;
-      max-width: 600px;
-      border-radius: 10px;
-      overflow: hidden;
-      background: var(--bg);
-      border: 1px solid #2a2d3a;
-    }
-
-    #spectrum {
-      display: block;
-      width: 100%;
-      height: 240px;
-    }
-
-    #f0-strip {
-      display: block;
-      width: 100%;
-      height: 60px;
-    }
-
-    #stability-progress-wrap {
-      width: 100%;
-      max-width: 600px;
-      height: 4px;
-      background: #1a3a28;
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    #stability-progress {
-      height: 100%;
-      width: 0%;
-      background: #1a3a28;
-      border-radius: 2px;
+    .timer-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
 
     #detection-badge {
@@ -114,88 +80,54 @@
       border: 1px solid #333;
       transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
-
     #detection-badge.on {
       background: #1a3a28;
       color: var(--accent);
       border-color: var(--accent);
     }
 
-    #gate-status {
-      font-size: 0.85rem;
+    #session-line {
+      font-size: 0.9rem;
       color: var(--text-muted);
-      min-height: 1.2em;
-      text-align: center;
-      letter-spacing: 0.02em;
-    }
-
-    .controls {
-      width: 100%;
-      max-width: 600px;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-
-    .slider-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .slider-row label {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-      min-width: 6em;
-    }
-
-    .slider-row input[type="range"] {
-      flex: 1;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-
-    .slider-row .value {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      min-width: 2.5em;
-      text-align: right;
       font-variant-numeric: tabular-nums;
+      min-height: 1.2em;
     }
 
-    .slider-row .unit {
+    #btn-toggle {
+      min-width: 220px;
+      min-height: 60px;
+      padding: 0 2rem;
+      border: 1.5px solid var(--start-color);
+      border-radius: 12px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--start-bg);
+      color: var(--start-color);
+      transition: opacity 0.15s;
+    }
+    #btn-toggle.active {
+      background: var(--stop-bg);
+      color: var(--stop-color);
+      border-color: var(--stop-color);
+    }
+    #btn-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #status {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-align: center;
+      min-height: 1.3em;
+    }
+
+    #lifetime {
       font-size: 0.85rem;
       color: var(--text-muted);
-      min-width: 2.5em;
-    }
-
-    .stability-toggle {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .stability-toggle input[type="checkbox"] {
-      accent-color: var(--accent);
-      width: 15px;
-      height: 15px;
-      cursor: pointer;
-    }
-
-    .stability-sliders {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      padding-left: 1.5rem;
+      text-align: center;
     }
 
     #wake-lock-status {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--text-muted);
       text-align: center;
     }
@@ -228,64 +160,25 @@
 </head>
 <body>
 
-  <h1>Cello Tracker</h1>
+  <div class="topbar">
+    <h1>Cello Tracker</h1>
+    <a class="nav-link" href="/settings">⚙ Settings</a>
+  </div>
 
   <div id="https-warning">⚠️ HTTPS required — mic and wake lock will not work over HTTP.</div>
 
-  <button id="btn-toggle">▶ Start Session</button>
-
-  <p id="status">Status: Idle</p>
+  <div class="timer-label">Playing time</div>
+  <div id="playing" class="timer">00:00</div>
 
   <div id="detection-badge">● Not detecting</div>
 
-  <div id="gate-status"></div>
+  <button id="btn-toggle">▶ Start Session</button>
 
-  <div class="canvas-wrap">
-    <canvas id="spectrum"></canvas>
-  </div>
+  <p id="session-line"></p>
 
-  <div class="canvas-wrap">
-    <canvas id="f0-strip"></canvas>
-  </div>
+  <p id="status"></p>
 
-  <div id="stability-progress-wrap">
-    <div id="stability-progress"></div>
-  </div>
-
-  <div class="controls">
-    <div class="slider-row">
-      <label for="threshold-slider">Threshold</label>
-      <input id="threshold-slider" type="range" min="1" max="200" value="15" />
-      <span id="threshold-value" class="value">15</span>
-      <span class="unit"></span>
-    </div>
-
-    <div class="slider-row">
-      <label for="attack-slider">Attack</label>
-      <input id="attack-slider" type="range" min="30" max="400" step="10" value="60" />
-      <span id="attack-value" class="value">60</span>
-      <span class="unit">ms</span>
-    </div>
-
-    <label class="stability-toggle">
-      <input type="checkbox" id="stability-enabled" checked />
-      Stability gate
-    </label>
-    <div class="stability-sliders">
-      <div class="slider-row">
-        <label for="tolerance-slider">Tolerance</label>
-        <input id="tolerance-slider" type="range" min="20" max="100" step="5" value="30" />
-        <span id="tolerance-value" class="value">30</span>
-        <span class="unit">cents</span>
-      </div>
-      <div class="slider-row">
-        <label for="duration-slider">Duration</label>
-        <input id="duration-slider" type="range" min="50" max="500" step="25" value="200" />
-        <span id="duration-value" class="value">200</span>
-        <span class="unit">ms</span>
-      </div>
-    </div>
-  </div>
+  <p id="lifetime"></p>
 
   <p id="wake-lock-status">Wake lock: —</p>
 
@@ -295,116 +188,113 @@
   </p>
 
   <script src="detector.js"></script>
+  <script src="settings.js"></script>
   <script>
     // ── Elements ──────────────────────────────────────────────────────────────
-    const btn             = document.getElementById('btn-toggle');
-    const statusEl        = document.getElementById('status');
-    const canvas          = document.getElementById('spectrum');
-    const ctx             = canvas.getContext('2d');
-    const f0Canvas        = document.getElementById('f0-strip');
-    const f0Ctx           = f0Canvas.getContext('2d');
-    const progressBarEl   = document.getElementById('stability-progress');
-    const gateStatusEl    = document.getElementById('gate-status');
-    const wlEl            = document.getElementById('wake-lock-status');
-    const deniedEl        = document.getElementById('mic-denied-hint');
-    const httpsWarn       = document.getElementById('https-warning');
-    const sliderEl        = document.getElementById('threshold-slider');
-    const sliderValueEl   = document.getElementById('threshold-value');
-    const attackSlider    = document.getElementById('attack-slider');
-    const attackValue     = document.getElementById('attack-value');
-    const detectionBadge  = document.getElementById('detection-badge');
-    const stabilityChk    = document.getElementById('stability-enabled');
-    const toleranceSlider = document.getElementById('tolerance-slider');
-    const toleranceValue  = document.getElementById('tolerance-value');
-    const durationSlider  = document.getElementById('duration-slider');
-    const durationValue   = document.getElementById('duration-value');
+    const btn            = document.getElementById('btn-toggle');
+    const badge          = document.getElementById('detection-badge');
+    const playingEl      = document.getElementById('playing');
+    const sessionLineEl  = document.getElementById('session-line');
+    const statusEl       = document.getElementById('status');
+    const lifetimeEl     = document.getElementById('lifetime');
+    const wlEl           = document.getElementById('wake-lock-status');
+    const deniedEl       = document.getElementById('mic-denied-hint');
+    const httpsWarn      = document.getElementById('https-warning');
 
     // ── HTTPS guard ───────────────────────────────────────────────────────────
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       httpsWarn.style.display = 'block';
     }
 
-    // ── App state ─────────────────────────────────────────────────────────────
-    let isSessionActive = false;
-    let sessionStart    = null;
+    // ── Session storage (this app's own data) ─────────────────────────────────
+    const SESSIONS_KEY = 'cello.sessions';
 
-    // ── Persisted settings → detector params ──────────────────────────────────
-    // The config app owns persistence; the detector receives plain params and
-    // never touches localStorage. (Step 2 will factor this into settings.js.)
-    let threshold = parseInt(localStorage.getItem('detection.threshold') || sliderEl.value, 10);
-    sliderEl.value = threshold;
-    sliderValueEl.textContent = threshold;
+    function loadSessions() {
+      try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]'); }
+      catch { return []; }
+    }
 
-    let attackMs = parseInt(localStorage.getItem('detection.attackMs') || '60', 10);
-    attackSlider.value = attackMs;
-    attackValue.textContent = attackMs;
-
-    let stabilityEnabled = localStorage.getItem('stability.enabled') !== 'false';
-    stabilityChk.checked = stabilityEnabled;
-
-    let stabilityToleranceCents = parseInt(localStorage.getItem('stability.toleranceCents') || '30', 10);
-    toleranceSlider.value = stabilityToleranceCents;
-    toleranceValue.textContent = stabilityToleranceCents;
-
-    let stabilityDurationMs = parseInt(localStorage.getItem('stability.durationMs') || '200', 10);
-    durationSlider.value = stabilityDurationMs;
-    durationValue.textContent = stabilityDurationMs;
+    function saveSession(startMs, endMs, playMs) {
+      // Skip throwaway sessions (started and stopped with nothing played).
+      if (playMs < 1000) return;
+      const arr = loadSessions();
+      arr.push({
+        start:     new Date(startMs).toISOString(),
+        end:       new Date(endMs).toISOString(),
+        playingMs: Math.round(playMs),
+        sessionMs: endMs - startMs,
+      });
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify(arr));
+    }
 
     // ── Detector ──────────────────────────────────────────────────────────────
-    const det = new CelloDetector({
-      threshold,
-      attackMs,
-      stabilityEnabled,
-      toleranceCents: stabilityToleranceCents,
-      durationMs:     stabilityDurationMs,
-    });
+    // Main app only consumes resolution + lifecycle; it never renders frames.
+    const det = new CelloDetector(SettingsStore.load());
 
-    det.onFrame(render);
-    det.onDetectionChange(setDetection);
+    det.onDetectionChange(onDetectionChange);
     det.onStatus(handleStatus);
 
-    // ── Slider wiring (label + persist + live param update) ────────────────────
-    sliderEl.addEventListener('input', () => {
-      threshold = parseInt(sliderEl.value, 10);
-      sliderValueEl.textContent = threshold;
-      localStorage.setItem('detection.threshold', threshold);
-      det.setParams({ threshold });
-    });
+    // ── State ─────────────────────────────────────────────────────────────────
+    let active       = false;
+    let sessionStart = null;   // wall-clock (Date.now) of session start
+    let playingMs    = 0;      // banked detected time this session
+    let playStart    = null;   // performance.now() while currently detecting
+    let tickTimer    = null;
 
-    attackSlider.addEventListener('input', () => {
-      attackMs = parseInt(attackSlider.value, 10);
-      attackValue.textContent = attackMs;
-      localStorage.setItem('detection.attackMs', attackMs);
-      det.setParams({ attackMs });
-    });
+    function currentPlayingMs() {
+      return playingMs + (playStart !== null ? performance.now() - playStart : 0);
+    }
 
-    stabilityChk.addEventListener('change', () => {
-      stabilityEnabled = stabilityChk.checked;
-      localStorage.setItem('stability.enabled', stabilityEnabled);
-      det.setParams({ stabilityEnabled });
-    });
+    // ── Detection → playing-time accumulation ─────────────────────────────────
+    function onDetectionChange(on) {
+      if (on) {
+        playStart = performance.now();
+      } else if (playStart !== null) {
+        playingMs += performance.now() - playStart;
+        playStart = null;
+      }
+      setBadge(on);
+    }
 
-    toleranceSlider.addEventListener('input', () => {
-      stabilityToleranceCents = parseInt(toleranceSlider.value, 10);
-      toleranceValue.textContent = stabilityToleranceCents;
-      localStorage.setItem('stability.toleranceCents', stabilityToleranceCents);
-      det.setParams({ toleranceCents: stabilityToleranceCents });
-    });
-
-    durationSlider.addEventListener('input', () => {
-      stabilityDurationMs = parseInt(durationSlider.value, 10);
-      durationValue.textContent = stabilityDurationMs;
-      localStorage.setItem('stability.durationMs', stabilityDurationMs);
-      det.setParams({ durationMs: stabilityDurationMs });
-    });
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    function setStatus(text) { statusEl.textContent = 'Status: ' + text; }
-
-    function formatElapsed(ms) {
+    // ── Display ───────────────────────────────────────────────────────────────
+    function formatClock(ms) {
       const s = Math.floor(ms / 1000);
       const m = Math.floor(s / 60);
-      return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+      const h = Math.floor(m / 60);
+      const mm = String(m % 60).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+    }
+
+    function formatHM(ms) {
+      const m = Math.round(ms / 60000);
+      const h = Math.floor(m / 60);
+      return h > 0 ? `${h}h ${m % 60}m` : `${m}m`;
+    }
+
+    function updateDisplay() {
+      playingEl.textContent = formatClock(currentPlayingMs());
+      sessionLineEl.textContent = sessionStart
+        ? `Session ${formatClock(Date.now() - sessionStart)}`
+        : '';
+    }
+
+    function renderLifetime() {
+      const arr = loadSessions();
+      if (!arr.length) { lifetimeEl.textContent = 'No sessions logged yet'; return; }
+      const total = arr.reduce((s, x) => s + (x.playingMs || 0), 0);
+      lifetimeEl.textContent =
+        `Lifetime: ${formatHM(total)} played · ${arr.length} session${arr.length > 1 ? 's' : ''}`;
+    }
+
+    function setBadge(on) {
+      badge.classList.toggle('on', on);
+      badge.textContent = on ? '● Cello detected' : '● Not detecting';
+    }
+
+    function setButtonActive(a) {
+      btn.classList.toggle('active', a);
+      btn.textContent = a ? '■ Stop Session' : '▶ Start Session';
     }
 
     function setWakeLockStatus(state) {
@@ -417,180 +307,7 @@
       wlEl.textContent = labels[state] ?? 'Wake lock: —';
     }
 
-    function setButtonActive(active) {
-      btn.classList.toggle('active', active);
-      btn.textContent = active ? '■ Stop Session' : '▶ Start Session';
-    }
-
-    function setDetection(on) {
-      detectionBadge.classList.toggle('on', on);
-      detectionBadge.textContent = on ? '● Cello detected' : '● Not detecting';
-    }
-
-    function dot(pass) {
-      return pass
-        ? '<span style="color:#00ff9f">●</span>'
-        : '<span style="color:#444">○</span>';
-    }
-
-    function clearGateStatus() { gateStatusEl.innerHTML = ''; }
-
-    function resetProgressBar() {
-      progressBarEl.style.width = '0%';
-      progressBarEl.style.background = '#1a3a28';
-    }
-
-    // ── Canvas sizing ─────────────────────────────────────────────────────────
-    function sizeCanvas() {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width  = canvas.offsetWidth  * dpr;
-      canvas.height = canvas.offsetHeight * dpr;
-      ctx.scale(dpr, dpr);
-    }
-
-    function sizeF0Canvas() {
-      const dpr = window.devicePixelRatio || 1;
-      f0Canvas.width  = f0Canvas.offsetWidth  * dpr;
-      f0Canvas.height = f0Canvas.offsetHeight * dpr;
-      f0Ctx.scale(dpr, dpr);
-    }
-
-    // ── Idle draws ────────────────────────────────────────────────────────────
-    function drawIdle() {
-      const W = canvas.offsetWidth;
-      const H = canvas.offsetHeight;
-      ctx.fillStyle = '#0f1117';
-      ctx.fillRect(0, 0, W, H);
-      const barW = W / det.NUM_BARS;
-      const gap  = Math.max(1, barW * 0.2);
-      for (let i = 0; i < det.NUM_BARS; i++) {
-        ctx.fillStyle = det.barDefs[i].isCello ? '#1a3a28' : '#161920';
-        ctx.fillRect(i * barW + gap / 2, H - 2, barW - gap, 2);
-      }
-    }
-
-    function drawF0Idle() {
-      const W = f0Canvas.offsetWidth;
-      const H = f0Canvas.offsetHeight;
-      f0Ctx.fillStyle = '#0f1117';
-      f0Ctx.fillRect(0, 0, W, H);
-    }
-
-    // ── Per-frame render (driven by detector.onFrame) ─────────────────────────
-    function render(frame) {
-      const W = canvas.offsetWidth;
-      const H = canvas.offsetHeight;
-      const barW = W / det.NUM_BARS;
-      const gap  = Math.max(1, barW * 0.2);
-
-      ctx.fillStyle = '#0f1117';
-      ctx.fillRect(0, 0, W, H);
-
-      for (let i = 0; i < det.NUM_BARS; i++) {
-        const barH = (frame.bars[i] / 255) * H;
-        if (i === frame.peak.barIdx && frame.showPeak) {
-          ctx.fillStyle = '#ffffff';
-        } else if (det.barDefs[i].isCello) {
-          ctx.fillStyle = '#00cc7a';
-        } else {
-          ctx.fillStyle = '#2a3a32';
-        }
-        ctx.fillRect(i * barW + gap / 2, H - barH, barW - gap, barH);
-      }
-
-      // Threshold line — dashed, turns green when detection is active
-      const thresholdY = H - (frame.threshold / 255) * H;
-      ctx.strokeStyle = frame.detected ? '#00ff9f' : '#555';
-      ctx.lineWidth   = 1.5;
-      ctx.setLineDash([6, 4]);
-      ctx.beginPath();
-      ctx.moveTo(0, thresholdY);
-      ctx.lineTo(W, thresholdY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Detected pitch label
-      if (frame.showPeak) {
-        ctx.font      = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillStyle = frame.detected ? '#00ff9f' : '#aaa';
-        ctx.fillText(`${frame.peak.note}  ${frame.peak.freq} Hz`, 8, 20);
-      }
-
-      drawF0Strip(frame);
-      updateProgressBar(frame);
-      updateGateStatus(frame);
-
-      setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
-    }
-
-    // ── f0 history strip ──────────────────────────────────────────────────────
-    function logFreqToY(freq, H) {
-      const logMin  = Math.log2(det.CELLO_LOW);
-      const logMax  = Math.log2(det.CELLO_HIGH);
-      const clamped = Math.max(det.CELLO_LOW, Math.min(det.CELLO_HIGH, freq));
-      return H - ((Math.log2(clamped) - logMin) / (logMax - logMin)) * H;
-    }
-
-    function drawF0Strip(frame) {
-      const W = f0Canvas.offsetWidth;
-      const H = f0Canvas.offsetHeight;
-
-      f0Ctx.fillStyle = '#0f1117';
-      f0Ctx.fillRect(0, 0, W, H);
-
-      const hist = frame.f0History;
-      if (hist.length < 2) return;
-
-      const now    = frame.timeMs;
-      const center = frame.f0Center;
-
-      // Tolerance band centered on running median
-      const bandHigh = center * Math.pow(2,  frame.toleranceCents / 1200);
-      const bandLow  = center * Math.pow(2, -frame.toleranceCents / 1200);
-      const bandTopY = logFreqToY(bandHigh, H);
-      const bandBotY = logFreqToY(bandLow,  H);
-      f0Ctx.fillStyle = 'rgba(0, 255, 159, 0.08)';
-      f0Ctx.fillRect(0, bandTopY, W, bandBotY - bandTopY);
-
-      // Determine line color based on whether current f0 is inside the band
-      const lastFreq  = hist[hist.length - 1].freq;
-      const lastCents = Math.abs(1200 * Math.log2(lastFreq / center));
-      const inBand    = lastCents <= frame.toleranceCents;
-
-      f0Ctx.strokeStyle = inBand ? '#00ff9f' : '#666';
-      f0Ctx.lineWidth   = 1.5;
-      f0Ctx.beginPath();
-
-      const windowStart = now - det.STABILITY_WINDOW_MS;
-      let started = false;
-      for (const sample of hist) {
-        const x = ((sample.timeMs - windowStart) / det.STABILITY_WINDOW_MS) * W;
-        const y = logFreqToY(sample.freq, H);
-        if (!started) { f0Ctx.moveTo(x, y); started = true; }
-        else           { f0Ctx.lineTo(x, y); }
-      }
-      f0Ctx.stroke();
-    }
-
-    // ── Stability progress bar ────────────────────────────────────────────────
-    function updateProgressBar(frame) {
-      const pct = frame.durationMs > 0
-        ? Math.min(frame.stabilityProgressMs / frame.durationMs, 1) * 100
-        : 0;
-      progressBarEl.style.width = pct + '%';
-      progressBarEl.style.background = frame.stabilityGate ? '#00ff9f'
-                                      : pct > 0            ? '#00cc7a'
-                                                           : '#1a3a28';
-    }
-
-    // ── Gate status strip ─────────────────────────────────────────────────────
-    function updateGateStatus(frame) {
-      let html = `HPS: ${dot(frame.hpsPass)}`;
-      if (frame.stabilityEnabled) {
-        html += `<span style="margin-left:1rem">Stability: ${dot(frame.stabilityGate)}</span>`;
-      }
-      gateStatusEl.innerHTML = html;
-    }
+    function setStatus(text) { statusEl.textContent = text; }
 
     // ── Detector status events ────────────────────────────────────────────────
     function handleStatus(evt) {
@@ -598,25 +315,24 @@
         case 'requesting-mic':   setStatus('Requesting microphone…'); break;
         case 'reconnecting':     setStatus('Reconnecting…'); break;
         case 'reconnecting-mic': setStatus('Reconnecting — requesting microphone…'); break;
-        case 'listening':
-          if (sessionStart) setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
-          break;
+        case 'listening':        setStatus(''); break;
         case 'wakelock':         setWakeLockStatus(evt.state); break;
         case 'error':            handleDetectorError(evt.error); break;
       }
     }
 
-    // Detector already tore down audio; reset the app's UI to idle.
+    // Detector already tore down audio; bank what was played and reset to idle.
     function handleDetectorError(err) {
-      isSessionActive = false;
-      sessionStart    = null;
-      setDetection(false);
-      clearGateStatus();
-      resetProgressBar();
-      drawIdle();
-      drawF0Idle();
+      if (playStart !== null) { playingMs += performance.now() - playStart; playStart = null; }
+      if (sessionStart) saveSession(sessionStart, Date.now(), playingMs);
+      stopTicking();
+      active = false;
+      sessionStart = null;
+      setBadge(false);
       setButtonActive(false);
       btn.disabled = false;
+      renderLifetime();
+      updateDisplay();
 
       if (err?.name === 'NotAllowedError') {
         setStatus('Microphone access lost — session ended. Tap Start to try again.');
@@ -627,18 +343,25 @@
     }
 
     // ── Session start / stop ──────────────────────────────────────────────────
+    function startTicking() { tickTimer = setInterval(updateDisplay, 250); }
+    function stopTicking()  { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
+
     async function startSession() {
       btn.disabled = true;
       deniedEl.style.display = 'none';
+      setStatus('');
+
+      // Pick up any param changes made in /settings since page load.
+      det.setParams(SettingsStore.load());
 
       try {
         await det.start();
       } catch (err) {
         if (err.name === 'NotAllowedError') {
-          setStatus('Error — Microphone access denied. Check browser settings.');
+          setStatus('Microphone access denied. Check browser settings.');
           deniedEl.style.display = 'block';
         } else if (err.name === 'NotFoundError') {
-          setStatus('Error — No microphone found on this device.');
+          setStatus('No microphone found on this device.');
         } else {
           setStatus(`Error — ${err.message}`);
         }
@@ -646,44 +369,40 @@
         return;
       }
 
-      // Detector is running; first frame fires next tick — size canvases now.
-      sizeCanvas();
-      sizeF0Canvas();
-      setDetection(false);
-      clearGateStatus();
-      resetProgressBar();
-
-      sessionStart    = Date.now();
-      isSessionActive = true;
+      active       = true;
+      sessionStart = Date.now();
+      playingMs    = 0;
+      playStart    = null;
+      setBadge(false);
       setButtonActive(true);
       btn.disabled = false;
+      startTicking();
+      updateDisplay();
     }
 
     function stopSession() {
       det.stop();
-      isSessionActive = false;
-      sessionStart    = null;
+      if (playStart !== null) { playingMs += performance.now() - playStart; playStart = null; }
+      stopTicking();
+      if (sessionStart) saveSession(sessionStart, Date.now(), playingMs);
 
-      setDetection(false);
-      clearGateStatus();
-      resetProgressBar();
-      drawIdle();
-      drawF0Idle();
+      active = false;
+      sessionStart = null;
+      setBadge(false);
       setButtonActive(false);
-      setStatus('Idle');
+      setStatus('');
+      updateDisplay();     // freezes on the final playing time until next start
+      renderLifetime();
     }
 
-    // ── Button handler ────────────────────────────────────────────────────────
     btn.addEventListener('click', () => {
-      if (isSessionActive) stopSession();
+      if (active) stopSession();
       else startSession();
     });
 
     // ── Init ──────────────────────────────────────────────────────────────────
-    sizeCanvas();
-    sizeF0Canvas();
-    drawIdle();
-    drawF0Idle();
+    renderLifetime();
+    updateDisplay();
   </script>
 
 </body>

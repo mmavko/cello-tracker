@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f1117" />
+  <title>Cello Tracker — Settings</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --text: #e0e0e0;
+      --text-muted: #888;
+      --accent: #00ff9f;
+      --start-bg: #1a3a28;
+      --start-color: #00ff9f;
+      --stop-bg: #3a1a1a;
+      --stop-color: #ff5555;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1.25rem;
+      gap: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .nav-link {
+      font-size: 0.85rem;
+      color: var(--accent);
+      text-decoration: none;
+      opacity: 0.85;
+    }
+    .nav-link:hover { opacity: 1; }
+
+    #btn-toggle {
+      min-width: 200px;
+      min-height: 56px;
+      padding: 0 2rem;
+      border: 1.5px solid var(--start-color);
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--start-bg);
+      color: var(--start-color);
+      transition: opacity 0.15s;
+    }
+
+    #btn-toggle.active {
+      background: var(--stop-bg);
+      color: var(--stop-color);
+      border-color: var(--stop-color);
+    }
+
+    #btn-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #status {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      text-align: center;
+      min-height: 1.4em;
+    }
+
+    .canvas-wrap {
+      width: 100%;
+      max-width: 600px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--bg);
+      border: 1px solid #2a2d3a;
+    }
+
+    #spectrum {
+      display: block;
+      width: 100%;
+      height: 240px;
+    }
+
+    #f0-strip {
+      display: block;
+      width: 100%;
+      height: 60px;
+    }
+
+    #stability-progress-wrap {
+      width: 100%;
+      max-width: 600px;
+      height: 4px;
+      background: #1a3a28;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    #stability-progress {
+      height: 100%;
+      width: 0%;
+      background: #1a3a28;
+      border-radius: 2px;
+    }
+
+    #detection-badge {
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.3rem 0.9rem;
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text-muted);
+      border: 1px solid #333;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+
+    #detection-badge.on {
+      background: #1a3a28;
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    #gate-status {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      min-height: 1.2em;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .slider-row label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 6em;
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .slider-row .value {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      min-width: 2.5em;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .slider-row .unit {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      min-width: 2.5em;
+    }
+
+    .stability-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .stability-toggle input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    .stability-sliders {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding-left: 1.5rem;
+    }
+
+    #wake-lock-status {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    #https-warning {
+      display: none;
+      background: #3a1a1a;
+      color: #ff5555;
+      border: 1px solid #ff5555;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    #mic-denied-hint {
+      display: none;
+      background: var(--surface);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Settings</h1>
+  <a class="nav-link" href="/">← Back to tracker</a>
+
+  <div id="https-warning">⚠️ HTTPS required — mic and wake lock will not work over HTTP.</div>
+
+  <button id="btn-toggle">▶ Start Session</button>
+
+  <p id="status">Status: Idle</p>
+
+  <div id="detection-badge">● Not detecting</div>
+
+  <div id="gate-status"></div>
+
+  <div class="canvas-wrap">
+    <canvas id="spectrum"></canvas>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="f0-strip"></canvas>
+  </div>
+
+  <div id="stability-progress-wrap">
+    <div id="stability-progress"></div>
+  </div>
+
+  <div class="controls">
+    <div class="slider-row">
+      <label for="threshold-slider">Threshold</label>
+      <input id="threshold-slider" type="range" min="1" max="200" value="15" />
+      <span id="threshold-value" class="value">15</span>
+      <span class="unit"></span>
+    </div>
+
+    <div class="slider-row">
+      <label for="attack-slider">Attack</label>
+      <input id="attack-slider" type="range" min="30" max="400" step="10" value="60" />
+      <span id="attack-value" class="value">60</span>
+      <span class="unit">ms</span>
+    </div>
+
+    <label class="stability-toggle">
+      <input type="checkbox" id="stability-enabled" checked />
+      Stability gate
+    </label>
+    <div class="stability-sliders">
+      <div class="slider-row">
+        <label for="tolerance-slider">Tolerance</label>
+        <input id="tolerance-slider" type="range" min="20" max="100" step="5" value="30" />
+        <span id="tolerance-value" class="value">30</span>
+        <span class="unit">cents</span>
+      </div>
+      <div class="slider-row">
+        <label for="duration-slider">Duration</label>
+        <input id="duration-slider" type="range" min="50" max="500" step="25" value="200" />
+        <span id="duration-value" class="value">200</span>
+        <span class="unit">ms</span>
+      </div>
+    </div>
+  </div>
+
+  <p id="wake-lock-status">Wake lock: —</p>
+
+  <p id="mic-denied-hint">
+    Microphone access was denied.<br>
+    On iOS: <strong>Settings → Safari → Microphone → Allow</strong>
+  </p>
+
+  <script src="detector.js"></script>
+  <script src="settings.js"></script>
+  <script>
+    // ── Elements ──────────────────────────────────────────────────────────────
+    const btn             = document.getElementById('btn-toggle');
+    const statusEl        = document.getElementById('status');
+    const canvas          = document.getElementById('spectrum');
+    const ctx             = canvas.getContext('2d');
+    const f0Canvas        = document.getElementById('f0-strip');
+    const f0Ctx           = f0Canvas.getContext('2d');
+    const progressBarEl   = document.getElementById('stability-progress');
+    const gateStatusEl    = document.getElementById('gate-status');
+    const wlEl            = document.getElementById('wake-lock-status');
+    const deniedEl        = document.getElementById('mic-denied-hint');
+    const httpsWarn       = document.getElementById('https-warning');
+    const sliderEl        = document.getElementById('threshold-slider');
+    const sliderValueEl   = document.getElementById('threshold-value');
+    const attackSlider    = document.getElementById('attack-slider');
+    const attackValue     = document.getElementById('attack-value');
+    const detectionBadge  = document.getElementById('detection-badge');
+    const stabilityChk    = document.getElementById('stability-enabled');
+    const toleranceSlider = document.getElementById('tolerance-slider');
+    const toleranceValue  = document.getElementById('tolerance-value');
+    const durationSlider  = document.getElementById('duration-slider');
+    const durationValue   = document.getElementById('duration-value');
+
+    // ── HTTPS guard ───────────────────────────────────────────────────────────
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      httpsWarn.style.display = 'block';
+    }
+
+    // ── App state ─────────────────────────────────────────────────────────────
+    let isSessionActive = false;
+    let sessionStart    = null;
+
+    // ── Persisted settings → detector params ──────────────────────────────────
+    // The config app owns persistence (via SettingsStore); the detector receives
+    // plain params and never touches localStorage.
+    const settings = SettingsStore.load();
+
+    let threshold = settings.threshold;
+    sliderEl.value = threshold;
+    sliderValueEl.textContent = threshold;
+
+    let attackMs = settings.attackMs;
+    attackSlider.value = attackMs;
+    attackValue.textContent = attackMs;
+
+    let stabilityEnabled = settings.stabilityEnabled;
+    stabilityChk.checked = stabilityEnabled;
+
+    let stabilityToleranceCents = settings.toleranceCents;
+    toleranceSlider.value = stabilityToleranceCents;
+    toleranceValue.textContent = stabilityToleranceCents;
+
+    let stabilityDurationMs = settings.durationMs;
+    durationSlider.value = stabilityDurationMs;
+    durationValue.textContent = stabilityDurationMs;
+
+    // ── Detector ──────────────────────────────────────────────────────────────
+    const det = new CelloDetector({
+      threshold,
+      attackMs,
+      stabilityEnabled,
+      toleranceCents: stabilityToleranceCents,
+      durationMs:     stabilityDurationMs,
+    });
+
+    det.onFrame(render);
+    det.onDetectionChange(setDetection);
+    det.onStatus(handleStatus);
+
+    // ── Slider wiring (label + persist + live param update) ────────────────────
+    sliderEl.addEventListener('input', () => {
+      threshold = parseInt(sliderEl.value, 10);
+      sliderValueEl.textContent = threshold;
+      SettingsStore.save({ threshold });
+      det.setParams({ threshold });
+    });
+
+    attackSlider.addEventListener('input', () => {
+      attackMs = parseInt(attackSlider.value, 10);
+      attackValue.textContent = attackMs;
+      SettingsStore.save({ attackMs });
+      det.setParams({ attackMs });
+    });
+
+    stabilityChk.addEventListener('change', () => {
+      stabilityEnabled = stabilityChk.checked;
+      SettingsStore.save({ stabilityEnabled });
+      det.setParams({ stabilityEnabled });
+    });
+
+    toleranceSlider.addEventListener('input', () => {
+      stabilityToleranceCents = parseInt(toleranceSlider.value, 10);
+      toleranceValue.textContent = stabilityToleranceCents;
+      SettingsStore.save({ toleranceCents: stabilityToleranceCents });
+      det.setParams({ toleranceCents: stabilityToleranceCents });
+    });
+
+    durationSlider.addEventListener('input', () => {
+      stabilityDurationMs = parseInt(durationSlider.value, 10);
+      durationValue.textContent = stabilityDurationMs;
+      SettingsStore.save({ durationMs: stabilityDurationMs });
+      det.setParams({ durationMs: stabilityDurationMs });
+    });
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function setStatus(text) { statusEl.textContent = 'Status: ' + text; }
+
+    function formatElapsed(ms) {
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    }
+
+    function setWakeLockStatus(state) {
+      const labels = {
+        active:      'Wake lock: active 🟢',
+        released:    'Wake lock: released (tab hidden) 🟡',
+        unavailable: 'Wake lock: unavailable 🔴',
+        idle:        'Wake lock: —',
+      };
+      wlEl.textContent = labels[state] ?? 'Wake lock: —';
+    }
+
+    function setButtonActive(active) {
+      btn.classList.toggle('active', active);
+      btn.textContent = active ? '■ Stop Session' : '▶ Start Session';
+    }
+
+    function setDetection(on) {
+      detectionBadge.classList.toggle('on', on);
+      detectionBadge.textContent = on ? '● Cello detected' : '● Not detecting';
+    }
+
+    function dot(pass) {
+      return pass
+        ? '<span style="color:#00ff9f">●</span>'
+        : '<span style="color:#444">○</span>';
+    }
+
+    function clearGateStatus() { gateStatusEl.innerHTML = ''; }
+
+    function resetProgressBar() {
+      progressBarEl.style.width = '0%';
+      progressBarEl.style.background = '#1a3a28';
+    }
+
+    // ── Canvas sizing ─────────────────────────────────────────────────────────
+    function sizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width  = canvas.offsetWidth  * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      ctx.scale(dpr, dpr);
+    }
+
+    function sizeF0Canvas() {
+      const dpr = window.devicePixelRatio || 1;
+      f0Canvas.width  = f0Canvas.offsetWidth  * dpr;
+      f0Canvas.height = f0Canvas.offsetHeight * dpr;
+      f0Ctx.scale(dpr, dpr);
+    }
+
+    // ── Idle draws ────────────────────────────────────────────────────────────
+    function drawIdle() {
+      const W = canvas.offsetWidth;
+      const H = canvas.offsetHeight;
+      ctx.fillStyle = '#0f1117';
+      ctx.fillRect(0, 0, W, H);
+      const barW = W / det.NUM_BARS;
+      const gap  = Math.max(1, barW * 0.2);
+      for (let i = 0; i < det.NUM_BARS; i++) {
+        ctx.fillStyle = det.barDefs[i].isCello ? '#1a3a28' : '#161920';
+        ctx.fillRect(i * barW + gap / 2, H - 2, barW - gap, 2);
+      }
+    }
+
+    function drawF0Idle() {
+      const W = f0Canvas.offsetWidth;
+      const H = f0Canvas.offsetHeight;
+      f0Ctx.fillStyle = '#0f1117';
+      f0Ctx.fillRect(0, 0, W, H);
+    }
+
+    // ── Per-frame render (driven by detector.onFrame) ─────────────────────────
+    function render(frame) {
+      const W = canvas.offsetWidth;
+      const H = canvas.offsetHeight;
+      const barW = W / det.NUM_BARS;
+      const gap  = Math.max(1, barW * 0.2);
+
+      ctx.fillStyle = '#0f1117';
+      ctx.fillRect(0, 0, W, H);
+
+      for (let i = 0; i < det.NUM_BARS; i++) {
+        const barH = (frame.bars[i] / 255) * H;
+        if (i === frame.peak.barIdx && frame.showPeak) {
+          ctx.fillStyle = '#ffffff';
+        } else if (det.barDefs[i].isCello) {
+          ctx.fillStyle = '#00cc7a';
+        } else {
+          ctx.fillStyle = '#2a3a32';
+        }
+        ctx.fillRect(i * barW + gap / 2, H - barH, barW - gap, barH);
+      }
+
+      // Threshold line — dashed, turns green when detection is active
+      const thresholdY = H - (frame.threshold / 255) * H;
+      ctx.strokeStyle = frame.detected ? '#00ff9f' : '#555';
+      ctx.lineWidth   = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, thresholdY);
+      ctx.lineTo(W, thresholdY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Detected pitch label
+      if (frame.showPeak) {
+        ctx.font      = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = frame.detected ? '#00ff9f' : '#aaa';
+        ctx.fillText(`${frame.peak.note}  ${frame.peak.freq} Hz`, 8, 20);
+      }
+
+      drawF0Strip(frame);
+      updateProgressBar(frame);
+      updateGateStatus(frame);
+
+      setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
+    }
+
+    // ── f0 history strip ──────────────────────────────────────────────────────
+    function logFreqToY(freq, H) {
+      const logMin  = Math.log2(det.CELLO_LOW);
+      const logMax  = Math.log2(det.CELLO_HIGH);
+      const clamped = Math.max(det.CELLO_LOW, Math.min(det.CELLO_HIGH, freq));
+      return H - ((Math.log2(clamped) - logMin) / (logMax - logMin)) * H;
+    }
+
+    function drawF0Strip(frame) {
+      const W = f0Canvas.offsetWidth;
+      const H = f0Canvas.offsetHeight;
+
+      f0Ctx.fillStyle = '#0f1117';
+      f0Ctx.fillRect(0, 0, W, H);
+
+      const hist = frame.f0History;
+      if (hist.length < 2) return;
+
+      const now    = frame.timeMs;
+      const center = frame.f0Center;
+
+      // Tolerance band centered on running median
+      const bandHigh = center * Math.pow(2,  frame.toleranceCents / 1200);
+      const bandLow  = center * Math.pow(2, -frame.toleranceCents / 1200);
+      const bandTopY = logFreqToY(bandHigh, H);
+      const bandBotY = logFreqToY(bandLow,  H);
+      f0Ctx.fillStyle = 'rgba(0, 255, 159, 0.08)';
+      f0Ctx.fillRect(0, bandTopY, W, bandBotY - bandTopY);
+
+      // Determine line color based on whether current f0 is inside the band
+      const lastFreq  = hist[hist.length - 1].freq;
+      const lastCents = Math.abs(1200 * Math.log2(lastFreq / center));
+      const inBand    = lastCents <= frame.toleranceCents;
+
+      f0Ctx.strokeStyle = inBand ? '#00ff9f' : '#666';
+      f0Ctx.lineWidth   = 1.5;
+      f0Ctx.beginPath();
+
+      const windowStart = now - det.STABILITY_WINDOW_MS;
+      let started = false;
+      for (const sample of hist) {
+        const x = ((sample.timeMs - windowStart) / det.STABILITY_WINDOW_MS) * W;
+        const y = logFreqToY(sample.freq, H);
+        if (!started) { f0Ctx.moveTo(x, y); started = true; }
+        else           { f0Ctx.lineTo(x, y); }
+      }
+      f0Ctx.stroke();
+    }
+
+    // ── Stability progress bar ────────────────────────────────────────────────
+    function updateProgressBar(frame) {
+      const pct = frame.durationMs > 0
+        ? Math.min(frame.stabilityProgressMs / frame.durationMs, 1) * 100
+        : 0;
+      progressBarEl.style.width = pct + '%';
+      progressBarEl.style.background = frame.stabilityGate ? '#00ff9f'
+                                      : pct > 0            ? '#00cc7a'
+                                                           : '#1a3a28';
+    }
+
+    // ── Gate status strip ─────────────────────────────────────────────────────
+    function updateGateStatus(frame) {
+      let html = `HPS: ${dot(frame.hpsPass)}`;
+      if (frame.stabilityEnabled) {
+        html += `<span style="margin-left:1rem">Stability: ${dot(frame.stabilityGate)}</span>`;
+      }
+      gateStatusEl.innerHTML = html;
+    }
+
+    // ── Detector status events ────────────────────────────────────────────────
+    function handleStatus(evt) {
+      switch (evt.kind) {
+        case 'requesting-mic':   setStatus('Requesting microphone…'); break;
+        case 'reconnecting':     setStatus('Reconnecting…'); break;
+        case 'reconnecting-mic': setStatus('Reconnecting — requesting microphone…'); break;
+        case 'listening':
+          if (sessionStart) setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
+          break;
+        case 'wakelock':         setWakeLockStatus(evt.state); break;
+        case 'error':            handleDetectorError(evt.error); break;
+      }
+    }
+
+    // Detector already tore down audio; reset the app's UI to idle.
+    function handleDetectorError(err) {
+      isSessionActive = false;
+      sessionStart    = null;
+      setDetection(false);
+      clearGateStatus();
+      resetProgressBar();
+      drawIdle();
+      drawF0Idle();
+      setButtonActive(false);
+      btn.disabled = false;
+
+      if (err?.name === 'NotAllowedError') {
+        setStatus('Microphone access lost — session ended. Tap Start to try again.');
+        deniedEl.style.display = 'block';
+      } else {
+        setStatus(`Session interrupted — ${err?.message ?? 'unknown error'}. Tap Start to try again.`);
+      }
+    }
+
+    // ── Session start / stop ──────────────────────────────────────────────────
+    async function startSession() {
+      btn.disabled = true;
+      deniedEl.style.display = 'none';
+
+      try {
+        await det.start();
+      } catch (err) {
+        if (err.name === 'NotAllowedError') {
+          setStatus('Error — Microphone access denied. Check browser settings.');
+          deniedEl.style.display = 'block';
+        } else if (err.name === 'NotFoundError') {
+          setStatus('Error — No microphone found on this device.');
+        } else {
+          setStatus(`Error — ${err.message}`);
+        }
+        btn.disabled = false;
+        return;
+      }
+
+      // Detector is running; first frame fires next tick — size canvases now.
+      sizeCanvas();
+      sizeF0Canvas();
+      setDetection(false);
+      clearGateStatus();
+      resetProgressBar();
+
+      sessionStart    = Date.now();
+      isSessionActive = true;
+      setButtonActive(true);
+      btn.disabled = false;
+    }
+
+    function stopSession() {
+      det.stop();
+      isSessionActive = false;
+      sessionStart    = null;
+
+      setDetection(false);
+      clearGateStatus();
+      resetProgressBar();
+      drawIdle();
+      drawF0Idle();
+      setButtonActive(false);
+      setStatus('Idle');
+    }
+
+    // ── Button handler ────────────────────────────────────────────────────────
+    btn.addEventListener('click', () => {
+      if (isSessionActive) stopSession();
+      else startSession();
+    });
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    sizeCanvas();
+    sizeF0Canvas();
+    drawIdle();
+    drawF0Idle();
+  </script>
+
+</body>
+</html>

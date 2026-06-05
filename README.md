@@ -5,11 +5,19 @@ A personal tool for tracking cello practice time automatically — no manual tim
 ## Repo map
 
 ```
-app/                     — the app (single HTML file, no build step)
-  index.html
+app/                     — the app (static files, no build step)
+  index.html             — main app at "/" — start/stop a session, count playing time
+  settings.html          — tuning UI at "/settings" — detection params + live visualizations
+  detector.js            — CelloDetector: mic + DSP + detection loop, shared by both pages
+  settings.js            — SettingsStore: detection-param defaults + localStorage load/save
 docs/                    — current technical design (detection, platform patterns)
 chronicles.md            — history: decisions, what was tried, what was killed
 ```
+
+Architecture: `detector.js` is a DOM/storage-agnostic detection module emitting results
+via `onFrame` / `onDetectionChange` / `onStatus`. `settings.html` writes detection params
+through `SettingsStore`; `index.html` reads them to seed the detector and stores its own
+play-session log under `cello.sessions`.
 
 For current status, what's being worked on next, and the reasoning behind any design choice, read `chronicles.md` — it's the project's memory.
 
