@@ -1,10 +1,18 @@
 # Platform foundations
 
 The mic, audio, and screen-wake patterns that keep this app running reliably
-on iOS Safari. Extracted from the original PoC spec — these patterns are
-implemented in `app/index.html` and remain authoritative. Don't change them
-without testing on a real iPhone first, because most of them exist because
-something silently broke on iPhone first.
+on iOS Safari. Extracted from the original PoC spec — these patterns remain
+authoritative. Don't change them without testing on a real iPhone first,
+because most of them exist because something silently broke on iPhone first.
+
+**Where they live now.** The audio pipeline, wake lock, background recovery,
+and session teardown are encapsulated in the `CelloDetector` class
+(`app/detector.js`); it surfaces state to the page through an `onStatus`
+callback (`{kind:'wakelock', state}`, `{kind:'reconnecting'}`,
+`{kind:'error', error}`, …) instead of touching the DOM directly. The HTTPS
+guard and canvas hi-DPI sizing live in the consuming pages (`index.html`,
+`settings.html`). The code samples below show the underlying patterns; the
+sequence is unchanged, only relocated into the class and its callbacks.
 
 ---
 

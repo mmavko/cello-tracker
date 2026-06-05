@@ -5,11 +5,32 @@ hypotheses, the arc — read `../chronicles.md`. This folder is what's true now;
 chronicles is how it became true.
 
 - **[platform-foundations.md](platform-foundations.md)** — mic permission flow,
-  audio pipeline, wake lock, iOS background recovery. Patterns implemented in
-  `app/index.html` that should not change without re-testing on a real iPhone.
+  audio pipeline, wake lock, iOS background recovery. Patterns now encapsulated
+  in `app/detector.js` (`CelloDetector`) that should not change without
+  re-testing on a real iPhone.
 - **Detection pipeline** (this document below) — the upgrade path from
   "HPS alone" to a layered detection pipeline that rejects human voice during
   cello practice.
+
+## Module layout
+
+The app is split into a reusable detection module and two thin UI pages over it:
+
+```
+app/detector.js    CelloDetector — mic + Web Audio + DSP (HPS, f0, gates) + the
+                   analysis loop + iOS recovery + wake lock. DOM/storage-agnostic;
+                   emits onFrame (viz data) / onDetectionChange / onStatus.
+app/settings.js    SettingsStore — detection-param defaults + localStorage load/save.
+app/settings.html  Tuning UI at "/settings". Writes params via SettingsStore, runs a
+                   live detector, renders the spectrum / f0 strip / gate visualizations.
+app/index.html     Main app at "/". Seeds the detector from SettingsStore, start/stop a
+                   session, counts detected playing time, logs sessions to localStorage.
+```
+
+The detection algorithms (this document, and the stage specs) live in `detector.js`.
+The visualizations and tuning controls live in `settings.html`. When a spec below says
+"integration point," it means `detector.js` for detection logic and `settings.html` for
+any UI/visualization.
 
 ---
 
@@ -69,8 +90,8 @@ Implementation specs live in:
 - [stage-2-harmonic-extent.md](stage-2-harmonic-extent.md)
 
 Both docs are self-contained briefs for a coding agent: algorithm, parameter
-ranges, UI controls, visualizations, and integration points into the existing
-`app/index.html`.
+ranges, UI controls, visualizations, and integration points — detection logic
+into `app/detector.js`, controls and visualizations into `app/settings.html`.
 
 ## Out of scope
 

@@ -17,7 +17,7 @@ look harmonic) for free, because they don't last long enough to register as
 ## Algorithm
 
 ### Inputs (already computed each frame)
-- `peak.freq` — fundamental detected by HPS (`findCelloPeak()` in `index.html`)
+- `peak.freq` — fundamental detected by HPS (`_findCelloPeak()` in `detector.js`)
 - `peak.val` — HPS amplitude at that fundamental
 - `dt` — milliseconds since last frame
 
