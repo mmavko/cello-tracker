@@ -294,18 +294,8 @@
     On iOS: <strong>Settings → Safari → Microphone → Allow</strong>
   </p>
 
+  <script src="detector.js"></script>
   <script>
-    // ── Constants ─────────────────────────────────────────────────────────────
-    const NUM_BARS           = 80;
-    const MIN_FREQ           = 30;
-    const MAX_FREQ           = 4000;
-    const CELLO_LOW          = 65;
-    const CELLO_HIGH         = 1200;
-    const FFT_SIZE           = 4096;
-    const HPS_HARMONICS      = 4;
-    const RELEASE_MS         = 1500;
-    const STABILITY_WINDOW_MS = 500;
-
     // ── Elements ──────────────────────────────────────────────────────────────
     const btn             = document.getElementById('btn-toggle');
     const statusEl        = document.getElementById('status');
@@ -334,31 +324,16 @@
       httpsWarn.style.display = 'block';
     }
 
-    // ── State ─────────────────────────────────────────────────────────────────
+    // ── App state ─────────────────────────────────────────────────────────────
     let isSessionActive = false;
-    let isRecovering    = false;
     let sessionStart    = null;
-    let rafId           = null;
-    let wakeLock        = null;
-    let audioCtx        = null;
-    let analyser        = null;
-    let stream          = null;
-    let sourceNode      = null;
-    let freqData        = null;
-    let hpsArray        = null;
 
-    let isDetected    = false;
-    let aboveMs       = 0;
-    let belowMs       = 0;
-    let lastFrameTime = null;
-
-    // Stability gate state
-    let f0History           = [];
-    let stabilityGate       = false;
-    let stabilityProgressMs = 0;
-
-    // ── Persisted settings ────────────────────────────────────────────────────
-    let threshold = parseInt(sliderEl.value, 10);
+    // ── Persisted settings → detector params ──────────────────────────────────
+    // The config app owns persistence; the detector receives plain params and
+    // never touches localStorage. (Step 2 will factor this into settings.js.)
+    let threshold = parseInt(localStorage.getItem('detection.threshold') || sliderEl.value, 10);
+    sliderEl.value = threshold;
+    sliderValueEl.textContent = threshold;
 
     let attackMs = parseInt(localStorage.getItem('detection.attackMs') || '60', 10);
     attackSlider.value = attackMs;
@@ -375,214 +350,53 @@
     durationSlider.value = stabilityDurationMs;
     durationValue.textContent = stabilityDurationMs;
 
+    // ── Detector ──────────────────────────────────────────────────────────────
+    const det = new CelloDetector({
+      threshold,
+      attackMs,
+      stabilityEnabled,
+      toleranceCents: stabilityToleranceCents,
+      durationMs:     stabilityDurationMs,
+    });
+
+    det.onFrame(render);
+    det.onDetectionChange(setDetection);
+    det.onStatus(handleStatus);
+
+    // ── Slider wiring (label + persist + live param update) ────────────────────
     sliderEl.addEventListener('input', () => {
       threshold = parseInt(sliderEl.value, 10);
       sliderValueEl.textContent = threshold;
+      localStorage.setItem('detection.threshold', threshold);
+      det.setParams({ threshold });
     });
 
     attackSlider.addEventListener('input', () => {
       attackMs = parseInt(attackSlider.value, 10);
       attackValue.textContent = attackMs;
       localStorage.setItem('detection.attackMs', attackMs);
+      det.setParams({ attackMs });
     });
 
     stabilityChk.addEventListener('change', () => {
       stabilityEnabled = stabilityChk.checked;
       localStorage.setItem('stability.enabled', stabilityEnabled);
+      det.setParams({ stabilityEnabled });
     });
 
     toleranceSlider.addEventListener('input', () => {
       stabilityToleranceCents = parseInt(toleranceSlider.value, 10);
       toleranceValue.textContent = stabilityToleranceCents;
       localStorage.setItem('stability.toleranceCents', stabilityToleranceCents);
+      det.setParams({ toleranceCents: stabilityToleranceCents });
     });
 
     durationSlider.addEventListener('input', () => {
       stabilityDurationMs = parseInt(durationSlider.value, 10);
       durationValue.textContent = stabilityDurationMs;
       localStorage.setItem('stability.durationMs', stabilityDurationMs);
+      det.setParams({ durationMs: stabilityDurationMs });
     });
-
-    // ── Bar frequency map (logarithmic, 30 Hz – 4 kHz) ───────────────────────
-    const barDefs = Array.from({ length: NUM_BARS }, (_, i) => {
-      const f1 = MIN_FREQ * Math.pow(MAX_FREQ / MIN_FREQ, i / NUM_BARS);
-      const f2 = MIN_FREQ * Math.pow(MAX_FREQ / MIN_FREQ, (i + 1) / NUM_BARS);
-      return { f1, f2, isCello: f1 < CELLO_HIGH && f2 > CELLO_LOW };
-    });
-
-    // ── HPS ───────────────────────────────────────────────────────────────────
-
-    // Geometric mean of HPS harmonics, scaled to 0–255.
-    function computeHPS() {
-      const len = hpsArray.length;
-      for (let i = 0; i < len; i++) {
-        let product = freqData[i];
-        for (let k = 2; k <= HPS_HARMONICS; k++) {
-          product *= freqData[k * i];
-        }
-        hpsArray[i] = Math.pow(product, 1 / HPS_HARMONICS);
-      }
-    }
-
-    function getHPSBarValue(bar) {
-      const binWidth = audioCtx.sampleRate / analyser.fftSize;
-      const b1 = Math.max(0, Math.round(bar.f1 / binWidth));
-      const b2 = Math.round(bar.f2 / binWidth);
-      let sum = 0, count = 0;
-      for (let b = b1; b <= Math.min(b2, hpsArray.length - 1); b++) {
-        sum += hpsArray[b];
-        count++;
-      }
-      return count > 0 ? sum / count : 0;
-    }
-
-    // Returns the strongest HPS peak within the cello frequency range.
-    function findCelloPeak() {
-      const binWidth = audioCtx.sampleRate / analyser.fftSize;
-      const lowBin   = Math.max(1, Math.round(CELLO_LOW / binWidth));
-      const highBin  = Math.min(Math.round(CELLO_HIGH / binWidth), hpsArray.length - 1);
-      let peakBin = lowBin, peakVal = 0;
-      for (let i = lowBin; i <= highBin; i++) {
-        if (hpsArray[i] > peakVal) { peakVal = hpsArray[i]; peakBin = i; }
-      }
-      const freq   = Math.round(peakBin * binWidth);
-      const barIdx = barDefs.findIndex(b => freq >= b.f1 && freq < b.f2);
-      return { freq, val: peakVal, barIdx };
-    }
-
-    // ── Stability gate ────────────────────────────────────────────────────────
-    function medianOf(arr) {
-      const sorted = arr.slice().sort((a, b) => a - b);
-      return sorted[Math.floor(sorted.length / 2)];
-    }
-
-    function computeStability(peak, dt) {
-      const now = performance.now();
-
-      if (peak.val > 0) {
-        f0History.push({ timeMs: now, freq: peak.freq });
-      }
-      const cutoff = now - STABILITY_WINDOW_MS;
-      while (f0History.length > 0 && f0History[0].timeMs < cutoff) {
-        f0History.shift();
-      }
-
-      if (f0History.length < 3) {
-        stabilityGate = false;
-        stabilityProgressMs = 0;
-        return;
-      }
-
-      const center = medianOf(f0History.map(s => s.freq));
-      const cents  = Math.abs(1200 * Math.log2(peak.freq / center));
-
-      if (cents <= stabilityToleranceCents) {
-        stabilityProgressMs += dt;
-        if (stabilityProgressMs >= stabilityDurationMs) {
-          stabilityGate = true;
-        }
-      } else {
-        stabilityProgressMs = 0;
-        stabilityGate = false;
-      }
-    }
-
-    // ── f0 history strip ──────────────────────────────────────────────────────
-    function logFreqToY(freq, H) {
-      const logMin = Math.log2(CELLO_LOW);
-      const logMax = Math.log2(CELLO_HIGH);
-      const clamped = Math.max(CELLO_LOW, Math.min(CELLO_HIGH, freq));
-      return H - ((Math.log2(clamped) - logMin) / (logMax - logMin)) * H;
-    }
-
-    function drawF0Strip() {
-      const W = f0Canvas.offsetWidth;
-      const H = f0Canvas.offsetHeight;
-
-      f0Ctx.fillStyle = '#0f1117';
-      f0Ctx.fillRect(0, 0, W, H);
-
-      if (f0History.length < 2) return;
-
-      const now    = performance.now();
-      const center = medianOf(f0History.map(s => s.freq));
-
-      // Tolerance band centered on running median
-      const bandHigh = center * Math.pow(2,  stabilityToleranceCents / 1200);
-      const bandLow  = center * Math.pow(2, -stabilityToleranceCents / 1200);
-      const bandTopY = logFreqToY(bandHigh, H);
-      const bandBotY = logFreqToY(bandLow,  H);
-      f0Ctx.fillStyle = 'rgba(0, 255, 159, 0.08)';
-      f0Ctx.fillRect(0, bandTopY, W, bandBotY - bandTopY);
-
-      // Determine line color based on whether current f0 is inside the band
-      const lastFreq  = f0History[f0History.length - 1].freq;
-      const lastCents = Math.abs(1200 * Math.log2(lastFreq / center));
-      const inBand    = lastCents <= stabilityToleranceCents;
-
-      f0Ctx.strokeStyle = inBand ? '#00ff9f' : '#666';
-      f0Ctx.lineWidth   = 1.5;
-      f0Ctx.beginPath();
-
-      const windowStart = now - STABILITY_WINDOW_MS;
-      let started = false;
-      for (const sample of f0History) {
-        const x = ((sample.timeMs - windowStart) / STABILITY_WINDOW_MS) * W;
-        const y = logFreqToY(sample.freq, H);
-        if (!started) { f0Ctx.moveTo(x, y); started = true; }
-        else           { f0Ctx.lineTo(x, y); }
-      }
-      f0Ctx.stroke();
-    }
-
-    function drawF0Idle() {
-      const W = f0Canvas.offsetWidth;
-      const H = f0Canvas.offsetHeight;
-      f0Ctx.fillStyle = '#0f1117';
-      f0Ctx.fillRect(0, 0, W, H);
-    }
-
-    // ── Stability progress bar ────────────────────────────────────────────────
-    function updateProgressBar() {
-      const pct = stabilityDurationMs > 0
-        ? Math.min(stabilityProgressMs / stabilityDurationMs, 1) * 100
-        : 0;
-      progressBarEl.style.width = pct + '%';
-      progressBarEl.style.background = stabilityGate ? '#00ff9f'
-                                      : pct > 0      ? '#00cc7a'
-                                                     : '#1a3a28';
-    }
-
-    function resetProgressBar() {
-      progressBarEl.style.width = '0%';
-      progressBarEl.style.background = '#1a3a28';
-    }
-
-    // ── Gate status strip ─────────────────────────────────────────────────────
-    function dot(pass) {
-      return pass
-        ? '<span style="color:#00ff9f">●</span>'
-        : '<span style="color:#444">○</span>';
-    }
-
-    function updateGateStatus(hpsPass) {
-      let html = `HPS: ${dot(hpsPass)}`;
-      if (stabilityEnabled) {
-        html += `<span style="margin-left:1rem">Stability: ${dot(stabilityGate)}</span>`;
-      }
-      gateStatusEl.innerHTML = html;
-    }
-
-    function clearGateStatus() {
-      gateStatusEl.innerHTML = '';
-    }
-
-    // ── Note name ─────────────────────────────────────────────────────────────
-    function freqToNote(freq) {
-      const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-      const midi  = Math.round(69 + 12 * Math.log2(freq / 440));
-      return names[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);
-    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     function setStatus(text) { statusEl.textContent = 'Status: ' + text; }
@@ -609,27 +423,21 @@
     }
 
     function setDetection(on) {
-      if (on === isDetected) return;
-      isDetected = on;
       detectionBadge.classList.toggle('on', on);
       detectionBadge.textContent = on ? '● Cello detected' : '● Not detecting';
     }
 
-    // ── Wake Lock ─────────────────────────────────────────────────────────────
-    async function requestWakeLock() {
-      if (!('wakeLock' in navigator)) { setWakeLockStatus('unavailable'); return; }
-      try {
-        wakeLock = await navigator.wakeLock.request('screen');
-        setWakeLockStatus('active');
-        wakeLock.addEventListener('release', () => {
-          if (isSessionActive) setWakeLockStatus('released');
-        });
-      } catch { setWakeLockStatus('unavailable'); }
+    function dot(pass) {
+      return pass
+        ? '<span style="color:#00ff9f">●</span>'
+        : '<span style="color:#444">○</span>';
     }
 
-    function releaseWakeLock() {
-      if (wakeLock) { wakeLock.release(); wakeLock = null; }
-      setWakeLockStatus('idle');
+    function clearGateStatus() { gateStatusEl.innerHTML = ''; }
+
+    function resetProgressBar() {
+      progressBarEl.style.width = '0%';
+      progressBarEl.style.background = '#1a3a28';
     }
 
     // ── Canvas sizing ─────────────────────────────────────────────────────────
@@ -647,74 +455,52 @@
       f0Ctx.scale(dpr, dpr);
     }
 
-    // ── Spectrum canvas draw ──────────────────────────────────────────────────
+    // ── Idle draws ────────────────────────────────────────────────────────────
     function drawIdle() {
       const W = canvas.offsetWidth;
       const H = canvas.offsetHeight;
       ctx.fillStyle = '#0f1117';
       ctx.fillRect(0, 0, W, H);
-      const barW = W / NUM_BARS;
+      const barW = W / det.NUM_BARS;
       const gap  = Math.max(1, barW * 0.2);
-      for (let i = 0; i < NUM_BARS; i++) {
-        ctx.fillStyle = barDefs[i].isCello ? '#1a3a28' : '#161920';
+      for (let i = 0; i < det.NUM_BARS; i++) {
+        ctx.fillStyle = det.barDefs[i].isCello ? '#1a3a28' : '#161920';
         ctx.fillRect(i * barW + gap / 2, H - 2, barW - gap, 2);
       }
     }
 
-    function draw() {
-      rafId = requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(freqData);
-      computeHPS();
+    function drawF0Idle() {
+      const W = f0Canvas.offsetWidth;
+      const H = f0Canvas.offsetHeight;
+      f0Ctx.fillStyle = '#0f1117';
+      f0Ctx.fillRect(0, 0, W, H);
+    }
 
+    // ── Per-frame render (driven by detector.onFrame) ─────────────────────────
+    function render(frame) {
       const W = canvas.offsetWidth;
       const H = canvas.offsetHeight;
-      const barW = W / NUM_BARS;
+      const barW = W / det.NUM_BARS;
       const gap  = Math.max(1, barW * 0.2);
 
       ctx.fillStyle = '#0f1117';
       ctx.fillRect(0, 0, W, H);
 
-      const peak     = findCelloPeak();
-      const showPeak = peak.val > threshold * 0.3;
-
-      for (let i = 0; i < NUM_BARS; i++) {
-        const val  = getHPSBarValue(barDefs[i]);
-        const barH = (val / 255) * H;
-
-        if (i === peak.barIdx && showPeak) {
+      for (let i = 0; i < det.NUM_BARS; i++) {
+        const barH = (frame.bars[i] / 255) * H;
+        if (i === frame.peak.barIdx && frame.showPeak) {
           ctx.fillStyle = '#ffffff';
-        } else if (barDefs[i].isCello) {
+        } else if (det.barDefs[i].isCello) {
           ctx.fillStyle = '#00cc7a';
         } else {
           ctx.fillStyle = '#2a3a32';
         }
-
         ctx.fillRect(i * barW + gap / 2, H - barH, barW - gap, barH);
       }
 
-      const now = performance.now();
-      const dt  = lastFrameTime ? Math.min(now - lastFrameTime, 100) : 16;
-      lastFrameTime = now;
-
-      // Stage 1: pitch stability gate
-      computeStability(peak, dt);
-
-      const hpsPass      = peak.val > threshold;
-      const stabilityPass = !stabilityEnabled || stabilityGate;
-
-      if (hpsPass && stabilityPass) {
-        belowMs = 0;
-        aboveMs += dt;
-        if (!isDetected && aboveMs >= attackMs) setDetection(true);
-      } else {
-        aboveMs = 0;
-        belowMs += dt;
-        if (isDetected && belowMs >= RELEASE_MS) setDetection(false);
-      }
-
       // Threshold line — dashed, turns green when detection is active
-      const thresholdY = H - (threshold / 255) * H;
-      ctx.strokeStyle = isDetected ? '#00ff9f' : '#555';
+      const thresholdY = H - (frame.threshold / 255) * H;
+      ctx.strokeStyle = frame.detected ? '#00ff9f' : '#555';
       ctx.lineWidth   = 1.5;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
@@ -724,38 +510,106 @@
       ctx.setLineDash([]);
 
       // Detected pitch label
-      if (showPeak) {
+      if (frame.showPeak) {
         ctx.font      = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillStyle = isDetected ? '#00ff9f' : '#aaa';
-        ctx.fillText(`${freqToNote(peak.freq)}  ${peak.freq} Hz`, 8, 20);
+        ctx.fillStyle = frame.detected ? '#00ff9f' : '#aaa';
+        ctx.fillText(`${frame.peak.note}  ${frame.peak.freq} Hz`, 8, 20);
       }
 
-      // Stage 1 visualizations
-      drawF0Strip();
-      updateProgressBar();
-      updateGateStatus(hpsPass);
+      drawF0Strip(frame);
+      updateProgressBar(frame);
+      updateGateStatus(frame);
 
       setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
     }
 
-    function stopRafLoop() {
-      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    // ── f0 history strip ──────────────────────────────────────────────────────
+    function logFreqToY(freq, H) {
+      const logMin  = Math.log2(det.CELLO_LOW);
+      const logMax  = Math.log2(det.CELLO_HIGH);
+      const clamped = Math.max(det.CELLO_LOW, Math.min(det.CELLO_HIGH, freq));
+      return H - ((Math.log2(clamped) - logMin) / (logMax - logMin)) * H;
     }
 
-    // ── Mic restart (recovery) ────────────────────────────────────────────────
-    async function restartMicStream() {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      if (sourceNode) sourceNode.disconnect();
-      sourceNode = audioCtx.createMediaStreamSource(stream);
-      sourceNode.connect(analyser);
+    function drawF0Strip(frame) {
+      const W = f0Canvas.offsetWidth;
+      const H = f0Canvas.offsetHeight;
+
+      f0Ctx.fillStyle = '#0f1117';
+      f0Ctx.fillRect(0, 0, W, H);
+
+      const hist = frame.f0History;
+      if (hist.length < 2) return;
+
+      const now    = frame.timeMs;
+      const center = frame.f0Center;
+
+      // Tolerance band centered on running median
+      const bandHigh = center * Math.pow(2,  frame.toleranceCents / 1200);
+      const bandLow  = center * Math.pow(2, -frame.toleranceCents / 1200);
+      const bandTopY = logFreqToY(bandHigh, H);
+      const bandBotY = logFreqToY(bandLow,  H);
+      f0Ctx.fillStyle = 'rgba(0, 255, 159, 0.08)';
+      f0Ctx.fillRect(0, bandTopY, W, bandBotY - bandTopY);
+
+      // Determine line color based on whether current f0 is inside the band
+      const lastFreq  = hist[hist.length - 1].freq;
+      const lastCents = Math.abs(1200 * Math.log2(lastFreq / center));
+      const inBand    = lastCents <= frame.toleranceCents;
+
+      f0Ctx.strokeStyle = inBand ? '#00ff9f' : '#666';
+      f0Ctx.lineWidth   = 1.5;
+      f0Ctx.beginPath();
+
+      const windowStart = now - det.STABILITY_WINDOW_MS;
+      let started = false;
+      for (const sample of hist) {
+        const x = ((sample.timeMs - windowStart) / det.STABILITY_WINDOW_MS) * W;
+        const y = logFreqToY(sample.freq, H);
+        if (!started) { f0Ctx.moveTo(x, y); started = true; }
+        else           { f0Ctx.lineTo(x, y); }
+      }
+      f0Ctx.stroke();
     }
 
-    // ── Error recovery ────────────────────────────────────────────────────────
-    function handleUnrecoverableError(err) {
+    // ── Stability progress bar ────────────────────────────────────────────────
+    function updateProgressBar(frame) {
+      const pct = frame.durationMs > 0
+        ? Math.min(frame.stabilityProgressMs / frame.durationMs, 1) * 100
+        : 0;
+      progressBarEl.style.width = pct + '%';
+      progressBarEl.style.background = frame.stabilityGate ? '#00ff9f'
+                                      : pct > 0            ? '#00cc7a'
+                                                           : '#1a3a28';
+    }
+
+    // ── Gate status strip ─────────────────────────────────────────────────────
+    function updateGateStatus(frame) {
+      let html = `HPS: ${dot(frame.hpsPass)}`;
+      if (frame.stabilityEnabled) {
+        html += `<span style="margin-left:1rem">Stability: ${dot(frame.stabilityGate)}</span>`;
+      }
+      gateStatusEl.innerHTML = html;
+    }
+
+    // ── Detector status events ────────────────────────────────────────────────
+    function handleStatus(evt) {
+      switch (evt.kind) {
+        case 'requesting-mic':   setStatus('Requesting microphone…'); break;
+        case 'reconnecting':     setStatus('Reconnecting…'); break;
+        case 'reconnecting-mic': setStatus('Reconnecting — requesting microphone…'); break;
+        case 'listening':
+          if (sessionStart) setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
+          break;
+        case 'wakelock':         setWakeLockStatus(evt.state); break;
+        case 'error':            handleDetectorError(evt.error); break;
+      }
+    }
+
+    // Detector already tore down audio; reset the app's UI to idle.
+    function handleDetectorError(err) {
       isSessionActive = false;
-      stopRafLoop();
-      releaseWakeLock();
+      sessionStart    = null;
       setDetection(false);
       clearGateStatus();
       resetProgressBar();
@@ -772,39 +626,13 @@
       }
     }
 
-    async function recoverSession() {
-      isRecovering = true;
-      setStatus('Reconnecting…');
-      try {
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
-        const track = stream?.getAudioTracks()[0];
-        if (!track || track.readyState === 'ended') {
-          setStatus('Reconnecting — requesting microphone…');
-          await restartMicStream();
-        }
-        await requestWakeLock();
-        setStatus(`Listening — ${formatElapsed(Date.now() - sessionStart)}`);
-      } catch (err) {
-        handleUnrecoverableError(err);
-      } finally {
-        isRecovering = false;
-      }
-    }
-
-    document.addEventListener('visibilitychange', async () => {
-      if (!isSessionActive || document.visibilityState !== 'visible') return;
-      if (isRecovering) return;
-      await recoverSession();
-    });
-
-    // ── Session start ─────────────────────────────────────────────────────────
+    // ── Session start / stop ──────────────────────────────────────────────────
     async function startSession() {
       btn.disabled = true;
       deniedEl.style.display = 'none';
-      setStatus('Requesting microphone…');
 
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        await det.start();
       } catch (err) {
         if (err.name === 'NotAllowedError') {
           setStatus('Error — Microphone access denied. Check browser settings.');
@@ -818,37 +646,9 @@
         return;
       }
 
-      try {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      } catch {
-        stream.getTracks().forEach(t => t.stop());
-        setStatus('Error — Web Audio not supported in this browser.');
-        btn.disabled = false;
-        return;
-      }
-
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = FFT_SIZE;
-      analyser.smoothingTimeConstant = 0.35;
-
-      sourceNode = audioCtx.createMediaStreamSource(stream);
-      sourceNode.connect(analyser);
-      // NOT connected to destination — analysis only, no feedback
-
-      freqData = new Uint8Array(analyser.frequencyBinCount);
-      hpsArray = new Float32Array(Math.floor(analyser.frequencyBinCount / HPS_HARMONICS));
-
+      // Detector is running; first frame fires next tick — size canvases now.
       sizeCanvas();
       sizeF0Canvas();
-      await requestWakeLock();
-
-      isDetected          = false;
-      aboveMs             = 0;
-      belowMs             = 0;
-      lastFrameTime       = null;
-      f0History           = [];
-      stabilityGate       = false;
-      stabilityProgressMs = 0;
       setDetection(false);
       clearGateStatus();
       resetProgressBar();
@@ -857,27 +657,12 @@
       isSessionActive = true;
       setButtonActive(true);
       btn.disabled = false;
-
-      draw();
     }
 
-    // ── Session stop ──────────────────────────────────────────────────────────
     function stopSession() {
+      det.stop();
       isSessionActive = false;
-      stopRafLoop();
-      releaseWakeLock();
-
-      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-      if (audioCtx) { audioCtx.close(); audioCtx = null; }
-      sourceNode   = null;
-      analyser     = null;
-      freqData     = null;
-      hpsArray     = null;
-      sessionStart = null;
-
-      f0History           = [];
-      stabilityGate       = false;
-      stabilityProgressMs = 0;
+      sessionStart    = null;
 
       setDetection(false);
       clearGateStatus();
