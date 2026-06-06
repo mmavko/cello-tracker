@@ -178,6 +178,25 @@ illustrative and tunable; the curve is fast early, aspirational late:
 Rendering = a CSS grid of cards, emoji + name; tap a tile for its fact. Locked
 tiles are dimmed with a 🔒. No per-tile artwork.
 
+**Sizing — the collection must last years, and never stall.** Tile `costPoints` are
+*cumulative point thresholds*; a tile unlocks when lifetime points pass its
+threshold. Prices keep rising, but the **gap growth is capped** so late-game unlocks
+still arrive roughly every couple of weeks — an unlock cadence that stretches to
+months is demotivating. At a settled streak she earns ~70–110 points/day, so the
+banded plan is:
+
+| Band | Horizon | Gap between tiles | Cumulative reaches | ~Tiles |
+|---|---|---|---|---|
+| A | weeks 1–2 | 40–150 | ~900 | 9 (the starter list above) |
+| B | months 1–3 | 250–600 | ~6,000 | 12 |
+| C | year 1 | 700–1,300 | ~30,000 | 25 |
+| D | years 2–3 | 1,500–2,500 (capped) | ~100,000 | 30 |
+
+≈ **76 tiles ≈ 3 years.** The full list is pure swappable data (the engine is
+count-agnostic), authored before the collection view ships; the starter ~9 are
+enough to build and test against first. When she nears the end (a good problem), add
+a second band — "famous pieces / composers" — per §10.
+
 ### 4.3 Setback appearance (the "medium" break landing)
 
 When the streak breaks (§5.5), the Collection is **not** emptied — every unlocked
@@ -325,8 +344,10 @@ principles become concrete.
   and points accruing (`minutes × Momentum`, ticking). **No countdown. No bar to
   15.** A faint **"your usual ≈ 35 min"** marker sits on the timeline as a soft,
   positive reference (passing it adds a small sparkle; falling short shows
-  nothing negative). The marker is the *trailing median of her last ~10 sessions*
-  — so the reference is her real behavior, never the floor.
+  nothing negative). The marker is the *trailing median of her last ~10 days'
+  played totals* — so the reference is her real daily behavior, never the floor.
+  (Per-day, not per-session: a "session" is just listening-mode on/off, so its length
+  is noise; daily total is the truer "how long she practices.")
 - **Crossing the floor — quiet.** When detected sound passes the daily floor, a
   small unintrusive toast: **"Today counts ✓."** No fanfare, no stop cue. Points
   keep climbing visibly afterward. This is the single most important UX rule in
@@ -430,7 +451,14 @@ the parent.
 
 ## 8. Data model sketch (localStorage)
 
-Builds on the existing `cello.sessions` log. New key `cello.progress`:
+> The **authoritative persisted shape** lives in
+> [main-app-architecture.md](main-app-architecture.md) §1: persist only *inputs*
+> (`config`, `sessions[]`, `lessonDays[]`, `holidays[]`, `bonuses[]`); everything
+> below — streak, points, per-day `status`, collection — is **derived** by replay,
+> not stored. The block here is a conceptual illustration of that derived view, kept
+> for reading §9 standalone.
+
+Conceptual shape under `cello.progress`:
 
 ```jsonc
 {
@@ -464,11 +492,11 @@ Builds on the existing `cello.sessions` log. New key `cello.progress`:
 }
 ```
 
-- `days[*].soundSec` is derived from `cello.sessions` (sum of detected sound for
-  that date). `days[*].status` and the whole `streak` block are **derived** by
-  replaying the §9 state machine over the inputs (`days`, `holidays`,
-  `lessonDays`, `config`) — so logging a lesson or a holiday just edits an input
-  and re-runs. Momentum is derived from `streak.current` (§3.2), not stored.
+- `days[*].soundSec` (in §9 written `soundSec(D)`) is the per-day played total,
+  derived by summing the `sessions[]` log's `playedSec` for that date. `days[*].status`
+  and the whole `streak` block are **derived** by replaying the §9 state machine over
+  the inputs — so logging a lesson or a holiday just edits an input and re-runs.
+  Momentum is derived from `streak.current` (§3.2), not stored.
 - Tile definitions (`{id, emoji, name, costPoints, fact}`) live in a static theme
   file, not in saved state.
 
@@ -579,7 +607,7 @@ Key invariants:
 | Freeze bank | 1 | Max held at once; emergency backstop only. |
 | Freeze regen | 7 played-equivalent days | Played or Lesson days (not rest/frozen/holiday). |
 | Max consecutive frozen days | 1 | Second consecutive unprotected miss = break. |
-| "Your usual" marker | median of last ~10 sessions | Soft reference only; also sets recovery target. |
+| "Your usual" marker | median of last ~10 days' played totals | Soft reference only; also sets recovery target. Per-day, not per-session. |
 | Recovery target (recolour) | 2 × your-usual (≈70 min) | Minutes of return practice to fully recolour after a break. |
 | Bonus checkpoint interval | 5 min of overtime | Roll cadence after the floor is secured. |
 | Bonus probability | `min(0.15 + 0.05·n, 0.40)` | Per checkpoint `n`; ramps to a 40% cap. |

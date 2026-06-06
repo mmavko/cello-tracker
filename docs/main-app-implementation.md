@@ -27,8 +27,8 @@ supersedes the phasing notes that used to live in `main-app-ux.md` §12 and
 
 | # | Phase | Layer | Field-test | Depends on | Spec status |
 |---|---|---|---|---|---|
-| 0 | Scaffolding & test harness | infra | — | — | outline |
-| 1 | Engine: core loop | pure | tests only | 0 | outline |
+| 0 | Scaffolding & test harness | infra | — | — | **[spec ready](main-app-phase-1.md)** |
+| 1 | Engine: core loop | pure | tests only | 0 | **[spec ready](main-app-phase-1.md)** |
 | 2 | UI: core loop | shell | ✅ first real app | 1 | outline |
 | 3 | Engine: day-types & protection | pure | tests only | 1 | outline |
 | 4 | UI: protection & parent area | shell | ✅ | 2, 3 | outline |
@@ -77,8 +77,8 @@ brain behind UX §2's anti-satisficing resolution.
 **Scope.**
 - Finalize the **input schema** (`config`, `sessions[]`; `lessonDays[]`/`holidays[]`/
   `bonuses[]` reserved but unhandled yet) — arch §1.
-- `project(inputs, {today, liveSessionSec})` handling **Played** (session sound ≥
-  floor) and **Missed → break**; `streak.current/longest`; **Momentum** tiers
+- `project(inputs, {today})` handling **Played** (daily played total ≥ floor) and
+  **Missed → break**; `streak.current/longest`; **Momentum** tiers
   (UX §3.2); **points** = Σ(min × Momentum) (UX §3.3); **collection** unlock from
   points (UX §4); live today (`secured`, `isOvertime`, `pointsToday`); `daysIndex`.
 - `theme.js` — the world-tour tile list with escalating costs (UX §4.2).
@@ -200,7 +200,7 @@ rule); the anchor shows; recolour animates; field-test pass.
 
 ## Next action
 
-Deepen the spec for **Phase 0 + Phase 1** (they're small and adjacent — Phase 0 may
-not need its own file; Phase 1's exact input schema, `project()` output shape, and
-test matrix do warrant `docs/main-app-phase-1.md`). Then implement, then repeat for
-the next phase.
+Phase 0 + Phase 1 are spec'd in **[main-app-phase-1.md](main-app-phase-1.md)**
+(input schema, `project()` contract, Momentum/points/collection math, test matrix).
+Next is to **implement** them (scaffolding + the test-first engine), then write the
+Phase 2 spec and repeat.

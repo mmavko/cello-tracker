@@ -14,7 +14,7 @@ points. It's a **pure function from recorded facts to derived state**:
 
 ```js
 // app/motivation.js — pure; zero browser APIs
-export function project(inputs, { today, liveSessionSec }) → state
+export function project(inputs, { today }) → state
 export function shouldOfferBonus(state, sessionCtx, rng) → bonus | null
 ```
 
@@ -24,7 +24,7 @@ happened; recompute everything else.**
 | Persisted **inputs** (facts) | Derived by `project()` (never stored) |
 |---|---|
 | `config` — floor, restWeekday, lessonLen | per-day `status`, `streak.current`, `longest` |
-| `sessions[]` — `{date, sec}` per finished session | daily sound totals, **your-usual** (median) |
+| `sessions[]` — `{start, end, playedSec}` listening periods | per-day played totals, **your-usual** (median) |
 | `lessonDays[]` — parent-credited dates | `momentum`, `points.total`, `toNextTile` |
 | `holidays[]` — `{start, end}` ranges | `collection.unlocked`, recovery / dim level |
 | `bonuses[]` — `{date, points}` realized awards | `freezeBanked`, `regenCount`, streak `atRisk` |
@@ -33,6 +33,21 @@ So `localStorage['cello.progress']` is a handful of small append-mostly arrays.
 Streak, Momentum, points, collection, freeze, recovery are *all projections* —
 which is why "logging a lesson un-breaks yesterday's break" needs no special code:
 it's a date added to `lessonDays[]` followed by a replay.
+
+**Always-valid state; "listening mode" is in-memory.** A "session" is not a user
+concept — it's just the mic listening on/off. What the user cares about is *total
+played minutes today*, which must survive a reload. So: the live session (the
+detector, the running timer, the wake lock) is **in-memory only**; its detected
+seconds are **flushed into the current `sessions[]` record on a throttle** (every
+few seconds — `playedSec` and `end` updated). There is **no "running" flag in
+storage** — a record is just a truthful `{start, end, playedSec}` listening period,
+and an interrupted one (reload, iOS background-kill) is simply a shorter valid
+record. Whole-object `setItem` is atomic, so storage is never half-written. After a
+reload the user sees today's accrued minutes intact (summed from records); only the
+mic stops — they tap Start to re-arm it, losing at most the seconds since the last
+flush, never the session. The raw `{start, end, playedSec}` log is also kept
+deliberately as **raw data for later analysis** (start times, wall-clock durations,
+played time) — the engine only needs `playedSec` summed per day.
 
 **Two purity rules that buy testability — never break them:**
 
@@ -106,10 +121,10 @@ package.json             ← { "type": "module", "scripts": { "test": "node --te
 ```js
 // motivation.js
 export function project(inputs, ctx) {
-  // ctx = { today: 'YYYY-MM-DD', liveSessionSec: 0 }
+  // ctx = { today: 'YYYY-MM-DD' }
   // replays sessions/lessons/holidays/bonuses day-by-day (the §9 precedence machine)
   return {
-    today:   { date, status, soundSec, secured, isOvertime, pointsToday },
+    today:   { date, status, playedSec, secured, isOvertime, pointsToday },
     streak:  { current, longest, atRisk },     // atRisk: breaks if today ends empty
     momentum,                                   // × (derived from streak, §3.2)
     points:  { total, toNextTile, nextTile },
@@ -137,20 +152,23 @@ store.load() → inputs ──project()──▶ state ──render()──▶ D
       └──────── action mutates an input, store.save() ◀────┘   (then reproject + render)
 ```
 
-Actions: a practice tick raises `liveSessionSec` (reproject live); stopping appends
-to `sessions[]`; a parent logs a lesson → add to `lessonDays[]`; declare a holiday
-→ add to `holidays[]`. Every action is "mutate one input array, reproject, render."
+Actions: starting listening appends a `sessions[]` record and the practice view
+flushes its `playedSec`/`end` on a throttle (reproject live each flush); a parent
+logs a lesson → add to `lessonDays[]`; declare a holiday → add to `holidays[]`.
+Every action is "mutate one input array, reproject, render."
 
 ---
 
 ## 5. Detector integration
 
 `detector.js` is consumed only by `views/practice.js`: it `new`s the global
-`CelloDetector`, and translates detected-sound time into the practice session's
-running seconds. On stop, the view hands the session total to `store` (→
-`sessions[]`). The engine never imports or knows about the detector — it only ever
-sees `sessions[].sec`. Detection params still come from `SettingsStore`
-(`settings.js`), read once to seed the detector, exactly as today.
+`CelloDetector` (in-memory "listening mode"), accumulates detected seconds, and
+**flushes them into the current `sessions[]` record on a throttle** (`playedSec` +
+`end`), reprojecting each flush so the UI ticks. Stop finalizes `end`; a reload just
+leaves the record at its last flush. The engine never imports or knows about the
+detector — it only ever sees `sessions[].playedSec` summed per day. Detection params
+still come from `SettingsStore` (`settings.js`), read once to seed the detector,
+exactly as today.
 
 ---
 
@@ -215,9 +233,9 @@ modules never forces a rewrite of what shipped before.
 - **Bundling / minification / a router framework.** Not at this scale (single user,
   a few small files, HTTP/2). Revisit only if file count or view logic actually
   hurts.
-- **Open alignment note (flag for the UX doc):** UX §6 defines "your usual" as the
-  *trailing median of the last ~10 sessions*. The minimal inputs here support both
-  per-session median (from `sessions[]`) and a simpler per-day-total median. We'll
-  go per-session to match the UX doc unless the per-day total proves steadier in
-  practice — noting it so the two docs don't silently diverge.
-```
+- **"Your usual" is a per-*day* median** (resolved). UX §6 first framed it as a
+  median of recent *sessions*, but a "session" is just listening-mode on/off — its
+  length reflects how often she taps, not how much she practiced — so the truer
+  anchor is the median of recent **daily played totals**. Raw per-session data is
+  still kept for analysis; only the anchor/recovery-target uses daily totals.
+  (Phase 5; the UX doc text is updated to match.)
