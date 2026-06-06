@@ -1,12 +1,40 @@
 # Chronicles
-Last updated: 2026-06-05
+Last updated: 2026-06-06
 
 ## Current State
-App split into three decoupled modules (see 2026-06-05 entry) and deployed: main app at `/`, tuning UI at `/settings`, sharing `detector.js` + `settings.js`. Field-tested working on iPhone. The main app is intentionally **trivial** — start/stop + a playing-time counter + a localStorage session log — a placeholder while the detection module gets its real home. Detection quality itself is unchanged by the refactor (pure extraction); the open detection questions from before still stand: confirm the staccato latency fix holds and that the `(threshold, tolerance, duration)` operating point rejects conversational speech, with Stage 2 (harmonic extent) held in reserve for sustained voiced sounds. Next build work is on the real main app (session history, daily totals, goals) now that the detector is reusable.
+**Main app UX is designed but not built** — full spec in `docs/main-app-ux.md` (2026-06-06 entry). The app is a daily practice motivator for the user's child (age 11–13): a Duolingo-style streak system whose central design problem is keeping the 15-min "day counts" threshold from becoming a *ceiling* (Goodhart). Resolution: two decoupled currencies (fragile **Streak** for consistency + permanent **Collection**/world-tour treasure for depth) re-linked by a **Momentum** multiplier; the floor stays a quiet turnstile, never a headline. Day-handling settled into **five non-overloaded day-types** (Played, Lesson, Rest day, Frozen, Holiday, + Missed→break). Design is locked across three rounds of review with the user; **next step is implementation** of the real `app/index.html` against this spec. The placeholder trivial main app (start/stop + counter + session log) still ships at `/` until then.
 
-Repo structure: `app/` (4 static files — `index.html` main app, `settings.html` tuning UI, `detector.js` detection module, `settings.js` param store; no build step), `docs/` (current technical design — detection pipeline + platform foundations), `chronicles.md` (history), `README.md` (router only — vision, deploy command, repo map).
+Detection side is unchanged and still has its open questions: confirm the staccato latency fix holds and that the `(threshold, tolerance, duration)` operating point rejects conversational speech, with Stage 2 (harmonic extent) held in reserve. The detector (`detector.js`) is reusable and will seed the new main app's mic input.
+
+Repo structure: `app/` (4 static files — `index.html` main app, `settings.html` tuning UI, `detector.js` detection module, `settings.js` param store; no build step), `docs/` (current technical design — detection pipeline, platform foundations, **main-app-ux.md**), `chronicles.md` (history), `README.md` (router only — vision, deploy command, repo map).
 
 ## Chronicle
+
+### 2026-06-06 — Designed the main-app motivation UX (streak + Momentum + Collection)
+
+**Motivation:** time to design the *real* main app — a daily motivator for the user's 11–13-year-old to practice cello, replacing the placeholder counter. Design only this session (no code); output is `docs/main-app-ux.md`.
+
+**Central tension (the whole problem):** a Duolingo streak needs a daily qualifying threshold (15 min of detected sound), but the moment that threshold is shown as a goal it becomes the *ceiling* — Goodhart's law. The child's real sessions are much longer; 15 min must never read as "done." Requirement: keep the consistency benefit of streaks without surfacing the floor as a target.
+
+**Resolution — split one number into two currencies, re-link with a multiplier:**
+- **Streak** (fragile, resettable) drives daily consistency; its 15-min qualifier is a *quiet turnstile* — no countdown, no bar-to-15, only a small "Today counts ✓" mid-session, numbers always count *up*.
+- **Collection** (permanent, never lost; world-tour theme — emoji-tile CSS grid, near-zero art budget) drives depth, fed by total minutes, no ceiling.
+- **Momentum** (×1.0→×3.0 by streak length) is the link: longer streak → each practiced minute worth more. Breaking the streak drops Momentum to ×1 (the felt loss) but **never destroys the Collection** — humane loss aversion. Points = `minutes × Momentum`; the floor is never headlined.
+- Supporting moves: anchor on her *own* trailing-median session length (not the floor); probabilistic surprise bonuses gated to *overtime* (post-floor) so they reward depth and never gamify the floor.
+
+**Recurring design principle that drove every later decision — "one mechanism, two jobs is a smell."** Surfaced first as the played-vs-qualifying split, then forced a rework of day-handling.
+
+**Day-handling settled into five non-overloaded primitives** (each real-life situation → exactly one):
+- **Played** (detected ≥ floor), **Lesson** (parent-credited, no mic), **Rest day** (scheduled weekly day off), **Frozen** (emergency freeze), **Holiday** (pre-declared multi-day pause), else **Missed→break**.
+- **Break is "medium":** treasure persists but the world greyscales (one CSS filter) and recolours *gradually* over `2 × your-usual` minutes of return practice (earned comeback, rewards depth).
+
+**Two bugs the user caught, and their fixes (this is why the model has five types, not three):**
+1. *Mid-week Holiday silently desynced the weekly rest cadence* — because an earlier design overloaded the emergency **Freeze** to also power the weekly rest, and its 7-day regen counter (which excludes Holiday days) would fall one short. Fix: give the weekly rest its **own primitive** (parent-set **Rest weekday**), independent of the freeze. This let us *delete* the fragile "frozen counts toward regen" rule; Freeze reverts to a rare backstop (regen after 7 played-equivalent days).
+2. *The lesson day* — real practice (often the week's most valuable) but she won't run the app in front of the teacher; must count as **played**, which Holiday (a pause) can't do. New **Lesson credit** primitive: parent-gated (anti-gaming — a no-mic played-day+points credit would be trivially faked if child could self-tap), **one tap, today-or-yesterday grace** (covers "forgot to log yesterday"). Implemented as a date added to a `lessonDays` set that the date-driven state machine *replays* over → backfilling yesterday auto-undoes whatever it became (refunds a freeze, even un-breaks a break). Earns `lessonLen × Momentum`.
+
+**Final refinement — Played + Lesson stack.** User flagged that making `played` suppress `lesson` meant a stray short home session could block the parent from logging the lesson. Decoupled points entirely from the day-type machine: a day's points = `detectedMin × Momentum` + (`lessonLen × Momentum` if logged) + bonuses; the **streak still increments once** per played-equivalent day. Stacking is also just *more correct* — a home-practice-plus-lesson day is genuinely more practice.
+
+**Locked parameters/choices with the user:** audience 11–13; theme = world concert tour (locked); break intensity = medium with gradual recolour; Holiday = pre-declared pause; lesson = one-tap-confirm with one-day grace, points = lesson-length × Momentum. Spec includes data-model sketch (`cello.progress`, replay-derived state), the precedence state machine, parameters table, phasing (core loop → day-types/protection → polish), and out-of-scope (practice *quality*, accounts, social, notifications). `docs/README.md` index updated to link it.
 
 ### 2026-06-05 — Decoupled monolith into reusable detector + two UI apps
 

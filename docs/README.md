@@ -11,6 +11,10 @@ chronicles is how it became true.
 - **Detection pipeline** (this document below) — the upgrade path from
   "HPS alone" to a layered detection pipeline that rejects human voice during
   cello practice.
+- **[main-app-ux.md](main-app-ux.md)** — UX design for the real main app: the
+  streak + Momentum + Collection motivation system, the freeze / holiday / break
+  rules, screens, and the data/state-machine sketch. Design only, no
+  implementation yet.
 
 ## Module layout
 
