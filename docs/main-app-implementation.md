@@ -201,7 +201,9 @@ rule); the anchor shows; recolour animates; field-test pass.
 ## Next action
 
 Phase 0 + Phase 1 are **built and green** (`app/motivation.js`, `app/theme.js`,
-`test/` — `npm test` passes 15/15 against the spec's matrix). The browser shell
+`test/` — `npm test` passes 15/15 against the spec's matrix), and the full 76-tile
+world-tour collection is authored (`app/theme.js`, 0→100k pts). The browser shell
 (`index.html`/`main.js`) was intentionally deferred to Phase 2 to avoid gutting the
-working placeholder. Next: author the full ~76-tile world-tour list (data, for
-Phase 2), then write the **Phase 2 spec** (UI: core loop) and implement.
+working placeholder. Next: write the **Phase 2 spec** (UI: core loop — Home /
+Practice / Summary / Collection, the store, detector wiring, first real deploy) and
+implement.

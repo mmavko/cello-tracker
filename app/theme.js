@@ -4,10 +4,9 @@
 // threshold at which the tile unlocks. Tiles are sorted ascending by costPoints
 // (the first, "home", is free at 0).
 //
-// Phase 1 ships this ~9-tile testing subset (enough to exercise unlock thresholds).
-// The full multi-year list (~76 tiles, banded cost curve — UX §4.2 "Sizing") is
-// authored before the Phase 2 collection view; the engine is count-agnostic, so
-// growing this list touches no code.
+// The full multi-year list: 76 tiles on a banded cost curve (UX §4.2 "Sizing"),
+// cumulative thresholds from 0 to 100,000 points (~3 years of daily practice). The
+// engine is count-agnostic, so growing or re-theming this list touches no code.
 
 export const WORLD_TOUR = [
   // ── Band A (existing) ─────────────────────────────────────────────────────
