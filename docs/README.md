@@ -23,26 +23,37 @@ chronicles is how it became true.
   build roadmap: six phases (scaffolding → engine/UI core loop → engine/UI
   protection → polish), each with scope, done-criteria, and field-test gates.
   Per-phase deep specs (`main-app-phase-N.md`) get written just-in-time.
+- **[main-app-phase-1.md](main-app-phase-1.md)** — built spec for Phase 0+1 (the
+  engine core loop): input schema, `project()` contract, Momentum/points/collection
+  math, and the test matrix. Phases 0+1 are implemented (`app/motivation.js`).
 
 ## Module layout
 
-The app is split into a reusable detection module and two thin UI pages over it:
+The single authoritative file map (the root README points here). Two pure,
+reusable engines — detection and motivation — with thin UI over them; no build step:
 
 ```
 app/detector.js    CelloDetector — mic + Web Audio + DSP (HPS, f0, gates) + the
                    analysis loop + iOS recovery + wake lock. DOM/storage-agnostic;
                    emits onFrame (viz data) / onDetectionChange / onStatus.
+                   Classic global script (loaded via <script src>).
 app/settings.js    SettingsStore — detection-param defaults + localStorage load/save.
 app/settings.html  Tuning UI at "/settings". Writes params via SettingsStore, runs a
                    live detector, renders the spectrum / f0 strip / gate visualizations.
-app/index.html     Main app at "/". Seeds the detector from SettingsStore, start/stop a
-                   session, counts detected playing time, logs sessions to localStorage.
+app/index.html     "/" — currently the placeholder timer; the real motivation app
+                   replaces it in Phase 2 (main-app-implementation.md).
+app/motivation.js  The motivation engine — pure projection project(inputs,{today}) →
+                   derived streak / Momentum / points / Collection / recovery. No DOM,
+                   storage, clock, or RNG (all injected). ES module; node-tested.
+app/theme.js       Collection tile data (the "world tour", 76 tiles). Pure ES module.
+test/              node --test suite for motivation.js (`npm test`). Zero deps.
+package.json       type:module + test script. No bundler, no transpile.
 ```
 
-The detection algorithms (this document, and the stage specs) live in `detector.js`.
-The visualizations and tuning controls live in `settings.html`. When a spec below says
-"integration point," it means `detector.js` for detection logic and `settings.html` for
-any UI/visualization.
+For the detection docs: algorithms live in `detector.js`, visualizations/tuning in
+`settings.html` — so a spec's "integration point" means `detector.js` for detection
+logic and `settings.html` for any UI/visualization. The motivation engine's contract
+lives in `main-app-architecture.md` / `main-app-phase-1.md`.
 
 ---
 
