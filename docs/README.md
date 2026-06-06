@@ -15,6 +15,14 @@ chronicles is how it became true.
   streak + Momentum + Collection motivation system, the freeze / holiday / break
   rules, screens, and the data/state-machine sketch. Design only, no
   implementation yet.
+- **[main-app-architecture.md](main-app-architecture.md)** — engineering plan for
+  the main app: the pure-projection engine (`motivation.js`), the no-build ES
+  modules + `node --test` setup, module layout, data flow, and how the staged
+  build slots together. The *how* to main-app-ux.md's *what*.
+- **[main-app-implementation.md](main-app-implementation.md)** — the canonical
+  build roadmap: six phases (scaffolding → engine/UI core loop → engine/UI
+  protection → polish), each with scope, done-criteria, and field-test gates.
+  Per-phase deep specs (`main-app-phase-N.md`) get written just-in-time.
 
 ## Module layout
 

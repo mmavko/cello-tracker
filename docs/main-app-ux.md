@@ -590,15 +590,12 @@ Key invariants:
 
 ---
 
-## 12. Phasing (recommended build order)
+## 12. Phasing
 
-1. **Core loop** — daily floor, streak + rollover state machine, Momentum, points,
-   Collection grid (one theme), Home + Practice + Summary. This alone delivers the
-   §2 resolution.
-2. **Day-types & protection** — Rest weekday, Freeze (auto + regen), Lesson credit
-   (parent log, today/yesterday), Holiday pause, Parent area + PIN, Calendar view.
-3. **Polish / stickiness** — "your usual" anchor, surprise bonuses, gradual setback
-   recolouring, longest-streak records, second tile band.
+The build order lives in **[main-app-implementation.md](main-app-implementation.md)**
+(the canonical phase list). In short: a test-first pure engine, then UI, in
+shippable increments — core loop first (delivers the §2 resolution), then the
+day-types/protection of §5, then polish (bonuses, anchor, gradual recolour).
 
 ---
 
