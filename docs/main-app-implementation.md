@@ -27,8 +27,8 @@ supersedes the phasing notes that used to live in `main-app-ux.md` §12 and
 
 | # | Phase | Layer | Field-test | Depends on | Spec status |
 |---|---|---|---|---|---|
-| 0 | Scaffolding & test harness | infra | — | — | **[spec ready](main-app-phase-1.md)** |
-| 1 | Engine: core loop | pure | tests only | 0 | **[spec ready](main-app-phase-1.md)** |
+| 0 | Scaffolding & test harness | infra | — | — | **✅ done** |
+| 1 | Engine: core loop | pure | tests only | 0 | **✅ done** ([spec](main-app-phase-1.md)) |
 | 2 | UI: core loop | shell | ✅ first real app | 1 | outline |
 | 3 | Engine: day-types & protection | pure | tests only | 1 | outline |
 | 4 | UI: protection & parent area | shell | ✅ | 2, 3 | outline |
@@ -200,7 +200,8 @@ rule); the anchor shows; recolour animates; field-test pass.
 
 ## Next action
 
-Phase 0 + Phase 1 are spec'd in **[main-app-phase-1.md](main-app-phase-1.md)**
-(input schema, `project()` contract, Momentum/points/collection math, test matrix).
-Next is to **implement** them (scaffolding + the test-first engine), then write the
-Phase 2 spec and repeat.
+Phase 0 + Phase 1 are **built and green** (`app/motivation.js`, `app/theme.js`,
+`test/` — `npm test` passes 15/15 against the spec's matrix). The browser shell
+(`index.html`/`main.js`) was intentionally deferred to Phase 2 to avoid gutting the
+working placeholder. Next: author the full ~76-tile world-tour list (data, for
+Phase 2), then write the **Phase 2 spec** (UI: core loop) and implement.
