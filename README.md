@@ -25,8 +25,15 @@ Two framework-free engines kept pure and reusable — the cello **detector** and
 ## Deploy
 
 ```
-wrangler pages deploy app/ --project-name cello-tracker --branch main
+./deploy.sh
 ```
+
+Deploys `app/` to Cloudflare Pages (project `cello-tracker`). The script stamps
+`?v=<build>` onto every script/import URL so a normal browser reload always gets the
+latest — CF caches JS for 4h otherwise and a page-URL query can't bust sub-resources.
+The build stamp shows in the Home footer (next to ⚙) so you can confirm you're
+current. `app/_headers` keeps the HTML always-revalidated. The app source stays
+build-free; the stamping is a `cp` + `sed` at deploy time only.
 
 Custom domains: use the Cloudflare dashboard (Pages → project → Custom domains) — the
 API registers the domain but does not auto-create the CNAME record.

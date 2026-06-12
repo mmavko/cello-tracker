@@ -34,10 +34,9 @@ supersedes the phasing notes that used to live in `main-app-ux.md` §12 and
 | 4 | UI: protection & parent area | shell | ✅ | 2, 3 | outline |
 | 5 | Polish & stickiness | both | ✅ | 4 | outline |
 
-Deploys are manual (`wrangler pages deploy app/`), so building on `master` doesn't
-touch the live placeholder until we choose to deploy. Phase 2 is the first deploy
-of the real app; Phases 0–1 can land without deploying. Use a preview branch if
-on-device testing is wanted earlier.
+Deploys are manual (`./deploy.sh` — cache-busts each module URL; see arch §3), so
+building on `main` doesn't touch the live app until we choose to deploy. Phase 2 was
+the first deploy of the real app; Phases 0–1 landed without deploying.
 
 ---
 
@@ -200,17 +199,18 @@ rule); the anchor shows; recolour animates; field-test pass.
 
 ## Next action
 
-Phases 0–2 are **built**. The engine is green (`npm test` 15/15) and the full
-76-tile collection is authored. **Phase 2 (the real app) is implemented** per
-[main-app-phase-2.md](main-app-phase-2.md): `app/store.js`, `app/main.js`,
-`app/views/{home,practice,summary,collection}.js`, and a rebuilt `app/index.html`
-(warm "musician's-passport" look) that replaces the placeholder. Browser-smoke-tested
-locally — all four views render, routing works, detector wiring fires
-("Requesting microphone…"), no console errors.
+Phases 0–2 are **built**. The engine is green (`npm test` 16/16) and the full
+76-tile collection is authored. **Phase 2 (the real app) is implemented + deployed**
+per [main-app-phase-2.md](main-app-phase-2.md): `app/store.js`, `app/main.js`,
+`app/views/{home,practice,summary,collection}.js`, a rebuilt `app/index.html` (warm
+"musician's-passport" look) replacing the placeholder, plus a hidden **test panel**
+(`app/views/test.js`; 5-tap the streak) that drives the date-driven loop without the
+mic. Browser-smoke-tested locally end-to-end (all views, routing, detector wiring,
+break→dim, the panel) — no console errors.
 
-**Deployed** (`wrangler pages deploy app/ --project-name=cello-tracker`) — the real
-app is live at https://cello.mavko.consulting (and `cello-tracker.pages.dev`),
-replacing the placeholder. **Remaining for Phase 2 = the iPhone field-test**: verify
-the done-criteria on device (mic accrual, the quiet "Today counts ✓", persistence
-across reloads, an unlock, a break dimming the world, and Start→immediate-Stop leaves
-no live mic — spec item 7). After that, Phase 3 (engine: day-types & protection).
+**Live** at https://cello.mavko.consulting (deploy via `./deploy.sh`, which
+cache-busts every module URL — arch §3). **Remaining for Phase 2 = the iPhone
+field-test**: verify the done-criteria on device (mic accrual, the quiet "Today
+counts ✓", persistence across reloads, an unlock, a break dimming the world, and
+Start→immediate-Stop leaves no live mic — spec item 7). After that, Phase 3 (engine:
+day-types & protection).

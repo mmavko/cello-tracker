@@ -10,7 +10,7 @@ usable and field-testable on iPhone, per the roadmap in
 `app/views/{home,practice,summary,collection}.js`, and a rebuilt `app/index.html`
 that **replaces the placeholder timer**. The pure engine (`motivation.js`,
 `theme.js`) is **unchanged** — Phase 2 only *consumes* `project()`. This is the
-**first deploy of the real app** (`wrangler pages deploy app/`).
+**first deploy of the real app** (via `./deploy.sh`).
 
 **In scope.** The four child-facing views; the `localStorage` store of *inputs*; the
 `load → project → render` / `action → reproject → render` loop; detector wiring with
@@ -320,7 +320,9 @@ Rebuilt page. Load order matters (classic globals before the module):
 
 ## Done criteria — iPhone field-test (UX §6 the daily loop)
 
-Deploy `app/` to Cloudflare Pages, open on the iPhone in Safari, and confirm:
+Deploy with `./deploy.sh` (cache-busts module URLs — see arch §3), open on the
+iPhone in Safari (a normal reload picks up the new build; confirm the footer build
+stamp matches), and confirm:
 
 1. **Start/stop accrues detected time** — bowing moves the minutes; silence doesn't.
 2. **The day secures at the floor with a quiet ack** — "Today counts ✓" appears as
@@ -353,11 +355,16 @@ accidental edit).
 - `app/store.js` — `cello.progress` ⇄ inputs; session append/flush/end; `localISO`.
 - `app/main.js` — controller, in-memory router, `actions`, the `load→project→render`
   loop.
-- `app/views/home.js`, `practice.js`, `summary.js`, `collection.js`.
+- `app/views/home.js`, `practice.js`, `summary.js`, `collection.js`, `test.js`.
 - `app/index.html` — rebuilt shell (replaces the placeholder), one kid-facing
   stylesheet.
-- **Unchanged:** `app/motivation.js`, `app/theme.js`, `app/detector.js`,
-  `app/settings.js`, `app/settings.html`.
+- `app/version.js` — build stamp (`"dev"` in source; stamped by `deploy.sh`).
+- `app/_headers` — CF Pages cache policy (HTML always-revalidate).
+- `deploy.sh` (repo root) — cache-busting deploy (arch §3).
+- **Detector touched** (separate from the UI): `app/detector.js` got a `start()`
+  cancellation fix (a `stop()` during the mic request can't leave a live session).
+- **Unchanged:** `app/motivation.js`, `app/theme.js`, `app/settings.js`,
+  `app/settings.html`.
 
 ---
 
@@ -367,8 +374,10 @@ A hidden panel to drive the whole date-driven loop without the mic — essential
 for exercising streak/Momentum/collection and the upcoming Phase 3 protection
 day-types on the deployed phone.
 
-- **Reach it:** long-press (~800ms) the 🔥 streak number on Home. Deliberately
-  undiscoverable in normal tapping; no URL, works from the home-screen icon.
+- **Reach it:** tap the 🔥 streak 5× quickly on Home. (A long-press was the first
+  choice but iOS Safari intercepts holds for its own selection gesture — `click`
+  always fires, so taps are reliable.) Undiscoverable in normal tapping; works from
+  the home-screen icon.
 - **Controls:** **+5 min** (synthetic detected practice on the effective today),
   **+ played day** (30 min then advance — fast-builds streaks), **+1 day** (jump
   the effective clock forward), **Clear** (two-tap; wipes `cello.progress` +

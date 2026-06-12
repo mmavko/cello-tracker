@@ -113,6 +113,15 @@ package.json             ← { "type": "module", "scripts": { "test": "node --te
   the `package.json` carries *zero dependencies*, only a `test` script.
 - The `package.json` lives at repo root (`{"type":"module"}` makes root/test `.js`
   ESM for Node; the browser ignores it). `npm test` → `node --test`.
+- **Deploy-time cache-bust (the one transform):** `deploy.sh` copies `app/` to a
+  temp dir and `sed`s `?v=<build>` onto every `<script src>` / relative `.js`
+  import, then `wrangler pages deploy`s that. Still no bundler/transpile and the
+  *source* stays query-free — but CF Pages caches JS for 4h, and a query on the
+  *page* URL can't bust sub-resources (only each module's own URL can). `app/_headers`
+  pins HTML to `max-age=0, must-revalidate`, so a fresh page load pulls the new
+  module URLs automatically — no private tab / no clearing site data. `app/version.js`
+  (`VERSION`, stamped by the script; `"dev"` in source) surfaces in the Home footer +
+  test panel so a stale page is obvious.
 
 ---
 
