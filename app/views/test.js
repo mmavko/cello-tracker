@@ -6,6 +6,7 @@
 // any use (except Clear) sets the 🧪 taint flag the controller surfaces app-wide.
 
 import * as store from "../store.js";
+import { VERSION } from "../version.js";
 
 export function render({ root, state, actions }) {
   const test = store.loadTest();
@@ -15,7 +16,7 @@ export function render({ root, state, actions }) {
     <header class="test-head">
       <button class="back" id="back">←</button>
       <h1>🧪 Test panel</h1>
-      <p class="test-warn">Fake data for testing. <b>Clear</b> resets to a clean app.</p>
+      <p class="test-warn">Fake data for testing. <b>Clear</b> resets to a clean app. · v${VERSION}</p>
     </header>
 
     <div class="test-readout">

@@ -4,6 +4,7 @@
 // snapshot of project()'s output; no detector, no timers.
 
 import { WORLD_TOUR } from "../theme.js";
+import { VERSION } from "../version.js";
 
 const byId = Object.fromEntries(WORLD_TOUR.map((t) => [t.id, t]));
 const fmtMom = (n) => String(n);
@@ -69,6 +70,7 @@ export function render({ root, state, actions }) {
       <span>${points.total.toLocaleString()} points</span>
       <span>·</span>
       <span>🔥 longest ${streak.longest}</span>
+      <span class="ver">v${VERSION}</span>
       <a class="tune" href="settings.html" title="tune detection">⚙</a>
     </footer>
   `;
@@ -76,29 +78,15 @@ export function render({ root, state, actions }) {
   root.querySelector("#start").addEventListener("click", () => actions.go("practice"));
   root.querySelector("#open-collection").addEventListener("click", () => actions.go("collection"));
 
-  // Hidden entry to the test panel: long-press (~700ms) the streak. Deliberately
-  // undiscoverable in normal tapping; the 🧪 chip is the backstop if used.
-  //
-  // iOS Safari cancels a Pointer Events long-press — it claims the touch for its
-  // own selection/callout/scroll gesture and fires `pointercancel`, killing the
-  // timer before it can fire. So we use touch events with preventDefault() (+
-  // `touch-action: none` in CSS) to keep the gesture ours, and a small movement
-  // tolerance so a still hold survives micro-jitter. Mouse events cover desktop.
+  // Hidden entry to the test panel: tap the streak 5× quickly. A long-press is
+  // unreliable on iOS Safari (it claims the hold for its own selection gesture),
+  // but a tap always fires `click` — nothing for the OS to intercept. Five rapid
+  // taps is still unlikely to happen by accident; the 🧪 chip is the backstop.
   const streakEl = root.querySelector(".streak");
-  let lpTimer = null, lpFrom = null;
-  const lpEnd = () => { clearTimeout(lpTimer); lpTimer = null; lpFrom = null; };
-  const lpBegin = (x, y) => {
-    lpFrom = { x, y };
-    lpTimer = setTimeout(() => { lpTimer = null; actions.go("test"); }, 700);
-  };
-  const lpMove = (x, y) => { if (lpFrom && Math.hypot(x - lpFrom.x, y - lpFrom.y) > 12) lpEnd(); };
-
-  streakEl.addEventListener("touchstart", (e) => { e.preventDefault(); const t = e.touches[0]; lpBegin(t.clientX, t.clientY); }, { passive: false });
-  streakEl.addEventListener("touchmove", (e) => { const t = e.touches[0]; lpMove(t.clientX, t.clientY); }, { passive: true });
-  streakEl.addEventListener("touchend", lpEnd);
-  streakEl.addEventListener("touchcancel", lpEnd);
-  streakEl.addEventListener("mousedown", (e) => lpBegin(e.clientX, e.clientY));
-  streakEl.addEventListener("mousemove", (e) => lpMove(e.clientX, e.clientY));
-  streakEl.addEventListener("mouseup", lpEnd);
-  streakEl.addEventListener("mouseleave", lpEnd);
+  let taps = 0, tapTimer = null;
+  streakEl.addEventListener("click", () => {
+    if (++taps >= 5) { taps = 0; clearTimeout(tapTimer); actions.go("test"); return; }
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => { taps = 0; }, 700); // reset if taps slow down
+  });
 }
