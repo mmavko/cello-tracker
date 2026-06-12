@@ -361,6 +361,30 @@ accidental edit).
 
 ---
 
+## Test panel (dev tool, ships to prod)
+
+A hidden panel to drive the whole date-driven loop without the mic — essential
+for exercising streak/Momentum/collection and the upcoming Phase 3 protection
+day-types on the deployed phone.
+
+- **Reach it:** long-press (~800ms) the 🔥 streak number on Home. Deliberately
+  undiscoverable in normal tapping; no URL, works from the home-screen icon.
+- **Controls:** **+5 min** (synthetic detected practice on the effective today),
+  **+ played day** (30 min then advance — fast-builds streaks), **+1 day** (jump
+  the effective clock forward), **Clear** (two-tap; wipes `cello.progress` +
+  `cello.test`).
+- **Non-destructive clock:** a shell-only `cello.test = { dayOffset, tainted }`
+  feeds the engine `effectiveToday = realToday + dayOffset` (its `today` is an
+  injected parameter — the exact seam). Real session timestamps are never
+  rewritten; the offset is reversible. **`motivation.js` is untouched** — the panel
+  lives entirely in the impure shell.
+- **Taint guard:** any control except Clear sets `tainted`, and the controller
+  renders an app-wide **🧪 test data — not real** chip until Clear — so faked
+  progress is unmistakable and the child can't mistake it for real (or silently
+  trigger it).
+- Verified locally: +played day ×7 → streak 7, ×1.5, 257 pts, 5/76; +1 day →
+  break (streak 0, ×1, treasure preserved) + world greyscales; Clear → clean app.
+
 ## Locked decisions
 
 - **Designed kid-facing look; Collection grid is the centerpiece** — use the

@@ -14,7 +14,7 @@ const fmtMom = (n) => String(n);
 export function render({ root, state, actions }) {
   const inputs = store.load();
   const floor = inputs.config?.dailyFloorMin ?? 15;
-  const today = store.localToday();
+  const today = store.effectiveToday();
 
   // Today's seconds from records that already exist (the live one is appended
   // below at 0) — constant for this session, so display = priorTodaySec + liveSec
@@ -23,7 +23,7 @@ export function render({ root, state, actions }) {
     .filter((s) => String(s.start).slice(0, 10) === today)
     .reduce((a, s) => a + (s.playedSec ?? 0), 0);
 
-  const recIndex = store.startSession(store.localISO());
+  const recIndex = store.startSession(store.effectiveNowISO());
 
   // In-memory detected-seconds accumulator (the live truth for this session).
   let bankedSec = 0;
@@ -82,7 +82,7 @@ export function render({ root, state, actions }) {
   // Persist the live count + reproject so momentum (and the secured edge) stay
   // truthful as today's total crosses the floor.
   function flush() {
-    store.flushSession(recIndex, Math.round(liveSec()), store.localISO());
+    store.flushSession(recIndex, Math.round(liveSec()), store.effectiveNowISO());
     curMomentum = project(store.load(), { today }).momentum;
   }
 
@@ -140,7 +140,7 @@ export function render({ root, state, actions }) {
 
   function persist() {
     bankTail();
-    store.flushSession(recIndex, Math.round(liveSec()), store.localISO());
+    store.flushSession(recIndex, Math.round(liveSec()), store.effectiveNowISO());
     store.endSession(recIndex);
   }
 

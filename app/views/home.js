@@ -75,4 +75,14 @@ export function render({ root, state, actions }) {
 
   root.querySelector("#start").addEventListener("click", () => actions.go("practice"));
   root.querySelector("#open-collection").addEventListener("click", () => actions.go("collection"));
+
+  // Hidden entry to the test panel: long-press (~800ms) the streak. Deliberately
+  // undiscoverable in normal tapping; the 🧪 chip is the backstop if used.
+  const streakEl = root.querySelector(".streak");
+  let lp = null;
+  const cancelLP = () => { clearTimeout(lp); lp = null; };
+  streakEl.addEventListener("pointerdown", () => { lp = setTimeout(() => actions.go("test"), 800); });
+  streakEl.addEventListener("pointerup", cancelLP);
+  streakEl.addEventListener("pointerleave", cancelLP);
+  streakEl.addEventListener("pointercancel", cancelLP);
 }

@@ -86,7 +86,8 @@
       display: flex; align-items: center; justify-content: space-between;
       margin-top: 8px;
     }
-    .streak { display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 12px; }
+    .streak { display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 12px;
+      user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
     .flame { grid-row: span 2; font-size: 52px; line-height: 1; animation: flicker 2.6s ease-in-out infinite; }
     .streak-num { font-family: var(--fs-display); font-weight: 900; font-size: 56px; line-height: .9; }
     .streak-label { color: var(--ink-soft); font-size: 13px; font-weight: 500; }
@@ -240,6 +241,8 @@
       margin-top: 18px; padding-bottom: 24px;
     }
     .view-collection.cooled .world { filter: grayscale(1) opacity(.6); transition: filter .8s; }
+    .view-home.cooled .next-emoji,
+    .view-home.cooled .mini-stamp { filter: grayscale(1) opacity(.65); }
 
     .stamp {
       aspect-ratio: 1; border-radius: 16px; padding: 8px;
@@ -279,10 +282,52 @@
     .fact-emoji { grid-row: span 2; font-size: 34px; }
     .fact-name { font-family: var(--fs-display); font-weight: 700; font-size: 18px; }
     .fact-body { font-size: 14px; color: #e9dcc2; }
+
+    /* ── Test mode (hidden unless tainted) ──────────────────────────────────── */
+    .taint-chip {
+      position: fixed; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+      z-index: 200; display: none;
+      background: var(--wood); color: #fff5e3; font-weight: 700; font-size: 12px; letter-spacing: .04em;
+      padding: 5px 14px; border-radius: 999px; box-shadow: var(--shadow);
+    }
+    body.tainted .taint-chip { display: block; }
+    body.tainted #root { padding-top: 46px; }
+
+    .view-test { gap: 0; }
+    .test-head { text-align: center; position: relative; padding-top: 6px; }
+    .test-head h1 { font-size: 26px; margin: 2px 0 4px; }
+    .test-head .back {
+      position: absolute; left: 0; top: 2px; width: 42px; height: 42px; border-radius: 999px;
+      font-size: 22px; background: var(--paper-2); border: 1px solid var(--line); line-height: 1;
+    }
+    .test-warn { color: var(--ink-soft); font-size: 13px; margin: 0; }
+    .test-readout {
+      margin: 20px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+      background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    }
+    .test-readout > div {
+      background: var(--paper-2); padding: 11px 14px;
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    }
+    .test-readout span { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+    .test-readout b { font-family: var(--fs-display); font-weight: 600; font-size: 17px; font-variant-numeric: tabular-nums; }
+    .test-readout b small { font-weight: 400; font-size: 12px; color: var(--ink-soft); }
+    .test-controls { display: grid; gap: 12px; }
+    .tbtn {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+      padding: 16px 20px; border-radius: 16px; text-align: left;
+      font-family: var(--fs-display); font-weight: 600; font-size: 20px;
+      background: var(--paper-2); border: 1px solid var(--line); box-shadow: var(--shadow);
+    }
+    .tbtn small { font-family: var(--fs-body); font-weight: 500; font-size: 13px; color: var(--ink-soft); }
+    .tbtn:active { transform: translateY(2px); }
+    .tbtn.danger { color: #7a2e1a; background: #ecd9cf; border-color: #d8b3a4; }
+    .tbtn.danger small { color: #9c5b48; }
   </style>
 </head>
 <body>
   <main id="root"></main>
+  <div class="taint-chip">🧪 test data — not real</div>
 
   <!-- Classic globals first: define `CelloDetector` (class) + `SettingsStore` (const),
        both reachable from the module below. Unchanged, field-tested. -->

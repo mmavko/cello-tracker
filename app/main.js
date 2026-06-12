@@ -11,8 +11,9 @@ import * as Home from "./views/home.js";
 import * as Practice from "./views/practice.js";
 import * as Summary from "./views/summary.js";
 import * as Collection from "./views/collection.js";
+import * as Test from "./views/test.js";
 
-const VIEWS = { home: Home, practice: Practice, summary: Summary, collection: Collection };
+const VIEWS = { home: Home, practice: Practice, summary: Summary, collection: Collection, test: Test };
 
 const root = document.getElementById("root");
 let view = "home";
@@ -21,8 +22,10 @@ let unlocksAtStart = 0; // snapshot for the summary's "just unlocked" celebratio
 
 function rerender() {
   // Always reload from store so any storage mutation (a flush, an ended session)
-  // is reflected — load() is O(small) and keeps the loop honest.
-  const state = project(store.load(), { today: store.localToday() });
+  // is reflected — load() is O(small) and keeps the loop honest. `today` is the
+  // EFFECTIVE day (real clock + any test offset; 0 in normal use).
+  const state = project(store.load(), { today: store.effectiveToday() });
+  document.body.classList.toggle("tainted", store.loadTest().tainted);
   if (view === "practice") unlocksAtStart = state.collection.unlockedIds.length;
   VIEWS[view].render({ root, state, actions, unlocksAtStart });
 }
