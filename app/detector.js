@@ -70,6 +70,8 @@ class CelloDetector {
     this.running      = false;
     this.isRecovering = false;
     this.wakeLock     = null;
+    this._runToken    = 0;   // bumped by stop()/_fail(); a start() whose token is
+                             // stale was superseded mid-await and must self-abort.
 
     // Detection state machine
     this.isDetected    = false;
@@ -99,8 +101,25 @@ class CelloDetector {
   // Throws on mic/AudioContext acquisition failure so the caller can format the
   // message. Async failures during recovery surface via onStatus({kind:'error'}).
   async start() {
+    // Capture a token for this start. stop()/_fail() bump _runToken, so if it
+    // changes under us across an await, this start was superseded (e.g. the user
+    // hit Stop while the mic prompt was still open) — undo what we acquired and
+    // bail, rather than building a session nobody owns.
+    const token = ++this._runToken;
+
     this._emitStatus({ kind: 'requesting-mic' });
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch (err) {
+      if (token === this._runToken) throw err;   // current → let the caller format it
+      return;                                     // superseded → swallow (consumer is gone)
+    }
+    // Stopped while acquiring the mic? Drop the just-granted stream before we build
+    // anything (it was never assigned to this.stream, so we can't clobber a newer one).
+    if (token !== this._runToken) { stream.getTracks().forEach(t => t.stop()); return; }
+    this.stream = stream;
 
     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     this.analyser = this.audioCtx.createAnalyser();
@@ -126,6 +145,8 @@ class CelloDetector {
     this.stabilityProgressMs = 0;
 
     await this._requestWakeLock();
+    // Stopped during the wake-lock request? Tear down the graph we built and bail.
+    if (token !== this._runToken) { this._teardown(); this._releaseWakeLock(); return; }
 
     document.addEventListener('visibilitychange', this._onVisibility);
 
@@ -137,6 +158,7 @@ class CelloDetector {
   }
 
   stop() {
+    this._runToken++;   // invalidate any start() currently parked on an await
     this._teardown();
     if (this.isDetected) { this.isDetected = false; if (this._detectionCb) this._detectionCb(false); }
     this._releaseWakeLock();
@@ -162,6 +184,7 @@ class CelloDetector {
 
   // Unrecoverable error during a running session: tear down and notify.
   _fail(err) {
+    this._runToken++;   // invalidate any in-flight start()
     this._teardown();
     this._releaseWakeLock();
     if (this.isDetected) { this.isDetected = false; if (this._detectionCb) this._detectionCb(false); }
