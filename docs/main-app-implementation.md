@@ -29,7 +29,7 @@ supersedes the phasing notes that used to live in `main-app-ux.md` §12 and
 |---|---|---|---|---|---|
 | 0 | Scaffolding & test harness | infra | — | — | **✅ done** |
 | 1 | Engine: core loop | pure | tests only | 0 | **✅ done** ([spec](main-app-phase-1.md)) |
-| 2 | UI: core loop | shell | ⏳ pending deploy | 1 | **built** ([spec](main-app-phase-2.md)) |
+| 2 | UI: core loop | shell | ⏳ on-device test | 1 | **built + live** ([spec](main-app-phase-2.md)) |
 | 3 | Engine: day-types & protection | pure | tests only | 1 | outline |
 | 4 | UI: protection & parent area | shell | ✅ | 2, 3 | outline |
 | 5 | Polish & stickiness | both | ✅ | 4 | outline |
@@ -208,7 +208,9 @@ Phases 0–2 are **built**. The engine is green (`npm test` 15/15) and the full
 locally — all four views render, routing works, detector wiring fires
 ("Requesting microphone…"), no console errors.
 
-**Remaining for Phase 2 = the iPhone field-test + first deploy** (`wrangler pages
-deploy app/`), then verify the done-criteria on device (mic accrual, the quiet
-"Today counts ✓", persistence across reloads, an unlock, a break dimming the world).
-After that, Phase 3 (engine: day-types & protection).
+**Deployed** (`wrangler pages deploy app/ --project-name=cello-tracker`) — the real
+app is live at https://cello.mavko.consulting (and `cello-tracker.pages.dev`),
+replacing the placeholder. **Remaining for Phase 2 = the iPhone field-test**: verify
+the done-criteria on device (mic accrual, the quiet "Today counts ✓", persistence
+across reloads, an unlock, a break dimming the world, and Start→immediate-Stop leaves
+no live mic — spec item 7). After that, Phase 3 (engine: day-types & protection).
