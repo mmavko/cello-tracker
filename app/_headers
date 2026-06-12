@@ -1,0 +1,7 @@
+# Cloudflare Pages headers. Default asset caching is max-age=14400 (4h), which
+# made redeploys invisible — the browser kept serving stale JS modules. Force
+# every asset to revalidate each load (etag → cheap 304 when unchanged, 200 with
+# new content on a deploy), so deploys propagate immediately. Fine at this scale;
+# revisit with hashed filenames if the app ever grows.
+/*
+  Cache-Control: public, max-age=0, must-revalidate
