@@ -38,16 +38,19 @@
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html {
       margin: 0; min-height: 100%;
-      /* Background lives on <html> so it also paints behind the iOS status/address
-         bars and the overscroll ("rubber-band") area — those sample the root box,
-         not <body>. The solid var(--paper-2) under the gradient guarantees no white
-         ever shows through at the edges. */
+      overflow-x: hidden;   /* drop a sub-pixel horizontal scroller in mobile Safari */
+      /* Background on <html> so it also paints behind the iOS status/address bars +
+         the overscroll ("rubber-band") area. iOS tints those bars from the solid
+         background-COLOR (not the gradient image), so we keep the gradient's extremes
+         close to var(--paper) and set the solid base to var(--paper) too — the bar
+         then matches the content at both edges (no seam), and nothing shows white. */
       background:
-        radial-gradient(120% 80% at 50% -10%, #fbf3e1 0%, var(--paper) 42%, var(--paper-2) 100%)
-        var(--paper-2);
+        radial-gradient(120% 90% at 50% -10%, #f5ebd6 0%, var(--paper) 50%, #ece1c8 100%)
+        var(--paper);
     }
     body {
       margin: 0; min-height: 100dvh;
+      overflow-x: hidden;
       font-family: var(--fs-body);
       color: var(--ink);
       -webkit-font-smoothing: antialiased;
