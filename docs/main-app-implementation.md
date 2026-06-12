@@ -29,7 +29,7 @@ supersedes the phasing notes that used to live in `main-app-ux.md` §12 and
 |---|---|---|---|---|---|
 | 0 | Scaffolding & test harness | infra | — | — | **✅ done** |
 | 1 | Engine: core loop | pure | tests only | 0 | **✅ done** ([spec](main-app-phase-1.md)) |
-| 2 | UI: core loop | shell | ✅ first real app | 1 | outline |
+| 2 | UI: core loop | shell | ⏳ pending deploy | 1 | **built** ([spec](main-app-phase-2.md)) |
 | 3 | Engine: day-types & protection | pure | tests only | 1 | outline |
 | 4 | UI: protection & parent area | shell | ✅ | 2, 3 | outline |
 | 5 | Polish & stickiness | both | ✅ | 4 | outline |
@@ -200,10 +200,15 @@ rule); the anchor shows; recolour animates; field-test pass.
 
 ## Next action
 
-Phase 0 + Phase 1 are **built and green** (`app/motivation.js`, `app/theme.js`,
-`test/` — `npm test` passes 15/15 against the spec's matrix), and the full 76-tile
-world-tour collection is authored (`app/theme.js`, 0→100k pts). The browser shell
-(`index.html`/`main.js`) was intentionally deferred to Phase 2 to avoid gutting the
-working placeholder. Next: write the **Phase 2 spec** (UI: core loop — Home /
-Practice / Summary / Collection, the store, detector wiring, first real deploy) and
-implement.
+Phases 0–2 are **built**. The engine is green (`npm test` 15/15) and the full
+76-tile collection is authored. **Phase 2 (the real app) is implemented** per
+[main-app-phase-2.md](main-app-phase-2.md): `app/store.js`, `app/main.js`,
+`app/views/{home,practice,summary,collection}.js`, and a rebuilt `app/index.html`
+(warm "musician's-passport" look) that replaces the placeholder. Browser-smoke-tested
+locally — all four views render, routing works, detector wiring fires
+("Requesting microphone…"), no console errors.
+
+**Remaining for Phase 2 = the iPhone field-test + first deploy** (`wrangler pages
+deploy app/`), then verify the done-criteria on device (mic accrual, the quiet
+"Today counts ✓", persistence across reloads, an unlock, a break dimming the world).
+After that, Phase 3 (engine: day-types & protection).

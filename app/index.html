@@ -1,409 +1,294 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0f1117" />
-  <title>Cello Tracker</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1f140d" />
+  <title>Cello · World Tour</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Hanken+Grotesk:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+
   <style>
+    /* ── Tokens: a warm musician's-passport / atlas palette ─────────────────── */
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --text: #e0e0e0;
-      --text-muted: #888;
-      --accent: #00ff9f;
-      --start-bg: #1a3a28;
-      --start-color: #00ff9f;
-      --stop-bg: #3a1a1a;
-      --stop-color: #ff5555;
+      --paper:    #f1e6cf;
+      --paper-2:  #e9dabd;
+      --paper-3:  #e0cda6;
+      --ink:      #2c2015;
+      --ink-soft: #7a6647;
+      --line:     #cbb286;
+      --wood:     #b5651d;
+      --wood-2:   #97501a;
+      --gold:     #c8881a;
+      --gold-2:   #e7b14a;
+      --flame:    #df521c;
+      --flame-2:  #f4a01f;
+      --travel:   #2f6f6a;
+      --shadow:   28px 22px 60px -28px rgba(58, 38, 16, .55);
+      --r:        20px;
+      --fs-display: "Fraunces", Georgia, serif;
+      --fs-body: "Hanken Grotesk", system-ui, sans-serif;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; min-height: 100%; }
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: var(--fs-body);
+      color: var(--ink);
+      background:
+        radial-gradient(120% 80% at 50% -10%, #fbf3e1 0%, var(--paper) 42%, var(--paper-2) 100%);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    /* faint paper grain */
+    body::before {
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      opacity: .05; mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    #root {
+      max-width: 480px;
+      margin: 0 auto;
       min-height: 100dvh;
+      padding: max(22px, env(safe-area-inset-top)) 22px max(22px, env(safe-area-inset-bottom));
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding: 2rem 1.25rem;
-      gap: 1.5rem;
     }
 
-    .topbar {
-      width: 100%;
-      max-width: 440px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    h1 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-    }
-
-    .nav-link {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      text-decoration: none;
-    }
-    .nav-link:hover { color: var(--accent); }
-
-    /* The headline: accumulated playing time */
-    .timer {
-      font-size: 4rem;
-      font-weight: 600;
+    h1 { font-family: var(--fs-display); font-weight: 900; letter-spacing: -.02em; }
+    .num, .streak-num, .big-min span, .big-pts span, .sum-pts, .mom-x {
       font-variant-numeric: tabular-nums;
-      letter-spacing: 0.01em;
-      line-height: 1.1;
-      margin-top: 0.5rem;
     }
 
-    .timer-label {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+    button { font-family: inherit; cursor: pointer; border: none; color: inherit; }
+
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes flicker {
+      0%, 100% { transform: rotate(-2deg) scale(1);    filter: drop-shadow(0 2px 6px rgba(223,82,28,.45)); }
+      50%      { transform: rotate(2deg)  scale(1.06); filter: drop-shadow(0 4px 12px rgba(244,160,31,.6)); }
+    }
+    @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    /* ── HOME ───────────────────────────────────────────────────────────────── */
+    .view-home { gap: 4px; }
+    .view-home > * { animation: rise .5s both; }
+    .view-home > *:nth-child(2) { animation-delay: .05s; }
+    .view-home > *:nth-child(3) { animation-delay: .1s; }
+    .view-home > *:nth-child(4) { animation-delay: .15s; }
+
+    .home-hero {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 8px;
+    }
+    .streak { display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 12px; }
+    .flame { grid-row: span 2; font-size: 52px; line-height: 1; animation: flicker 2.6s ease-in-out infinite; }
+    .streak-num { font-family: var(--fs-display); font-weight: 900; font-size: 56px; line-height: .9; }
+    .streak-label { color: var(--ink-soft); font-size: 13px; font-weight: 500; }
+    .momentum { text-align: right; }
+    .mom-x {
+      display: block; font-family: var(--fs-display); font-weight: 900; font-size: 30px;
+      color: var(--travel);
+    }
+    .mom-label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+
+    .cooled-note {
+      margin: 6px 0 0; color: var(--ink-soft); font-style: italic; text-align: center;
     }
 
-    #detection-badge {
-      font-size: 0.9rem;
+    .btn-start {
+      margin: 30px 0 10px;
+      padding: 22px;
+      border-radius: var(--r);
+      font-family: var(--fs-display);
       font-weight: 600;
-      padding: 0.3rem 0.9rem;
-      border-radius: 20px;
-      background: var(--surface);
-      color: var(--text-muted);
-      border: 1px solid #333;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      font-size: 23px;
+      color: #fff5e3;
+      background: linear-gradient(180deg, var(--wood) 0%, var(--wood-2) 100%);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.25);
+      transition: transform .12s ease, box-shadow .12s ease;
     }
-    #detection-badge.on {
-      background: #1a3a28;
-      color: var(--accent);
-      border-color: var(--accent);
-    }
+    .btn-start .bow { filter: grayscale(.1); }
+    .btn-start:active { transform: translateY(2px) scale(.99); box-shadow: 14px 12px 32px -22px rgba(58,38,16,.55); }
 
-    #session-line {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      font-variant-numeric: tabular-nums;
-      min-height: 1.2em;
-    }
+    .today-status { text-align: center; color: var(--ink-soft); font-weight: 500; margin: 4px 0 0; }
 
-    #btn-toggle {
-      min-width: 220px;
-      min-height: 60px;
-      padding: 0 2rem;
-      border: 1.5px solid var(--start-color);
-      border-radius: 12px;
-      font-size: 1.15rem;
-      font-weight: 600;
-      cursor: pointer;
-      background: var(--start-bg);
-      color: var(--start-color);
-      transition: opacity 0.15s;
+    .preview {
+      margin-top: auto; text-align: left; width: 100%;
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: grid; gap: 12px;
     }
-    #btn-toggle.active {
-      background: var(--stop-bg);
-      color: var(--stop-color);
-      border-color: var(--stop-color);
+    .preview-next { display: flex; align-items: center; gap: 14px; }
+    .next-emoji { font-size: 40px; line-height: 1; }
+    .next-meta { display: grid; }
+    .next-label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+    .next-name { font-family: var(--fs-display); font-weight: 600; font-size: 21px; }
+    .next-togo { color: var(--gold); font-weight: 700; font-size: 14px; }
+    .preview-recent {
+      display: flex; align-items: center; gap: 8px;
+      border-top: 1px dashed var(--line); padding-top: 12px;
     }
-    #btn-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+    .mini-stamp { font-size: 22px; }
+    .preview-cta { margin-left: auto; color: var(--travel); font-weight: 700; font-size: 14px; }
 
-    #status {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      text-align: center;
-      min-height: 1.3em;
+    .home-foot {
+      display: flex; align-items: center; gap: 8px; justify-content: center;
+      margin-top: 14px; color: var(--ink-soft); font-size: 13px; font-weight: 500;
     }
+    .home-foot .tune { margin-left: auto; text-decoration: none; color: var(--ink-soft); font-size: 18px; opacity: .6; }
 
-    #lifetime {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      text-align: center;
+    /* ── PRACTICE ───────────────────────────────────────────────────────────── */
+    .view-practice { justify-content: center; }
+    .practice-wrap {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; text-align: center; animation: rise .4s both;
     }
+    .badge {
+      font-size: 13px; font-weight: 700; letter-spacing: .04em;
+      color: var(--ink-soft);
+      padding: 7px 14px; border-radius: 999px; background: var(--paper-2); border: 1px solid var(--line);
+      transition: color .2s, background .2s;
+    }
+    .badge.detecting { color: #2c5f1e; background: #dfe9c4; border-color: #bcd092; }
+    .big-min { font-family: var(--fs-display); font-weight: 900; line-height: .85; }
+    .big-min span:first-child { font-size: clamp(96px, 34vw, 168px); display: block; }
+    .big-min .unit { font-size: 16px; font-weight: 500; color: var(--ink-soft); letter-spacing: .04em; }
+    .big-pts { font-size: 19px; font-weight: 700; color: var(--ink); }
+    .big-pts .mom { color: var(--travel); }
+    .secured-chip {
+      opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s;
+      color: #2c5f1e; font-weight: 700; font-size: 15px;
+      padding: 6px 14px; border-radius: 999px; background: #dfe9c4; border: 1px solid #bcd092;
+    }
+    .secured-chip.on { opacity: 1; transform: none; }
+    .status { color: var(--ink-soft); font-size: 13px; min-height: 1em; margin: 0; }
 
-    #wake-lock-status {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      text-align: center;
+    .btn-stop {
+      margin-top: 8px; padding: 16px 46px; border-radius: 999px;
+      font-family: var(--fs-display); font-weight: 600; font-size: 19px; color: #fff5e3;
+      background: linear-gradient(180deg, #7a5638, #5b3c25);
+      box-shadow: var(--shadow);
     }
+    .btn-stop:active { transform: translateY(2px); }
+    .practice-wrap.error { gap: 20px; }
+    .err-msg { max-width: 22ch; color: var(--ink); font-weight: 500; }
 
-    #https-warning {
-      display: none;
-      background: #3a1a1a;
-      color: #ff5555;
-      border: 1px solid #ff5555;
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      font-size: 0.9rem;
-      text-align: center;
-      max-width: 400px;
+    .toast {
+      position: fixed; left: 50%; bottom: 12%; transform: translate(-50%, 20px);
+      background: var(--ink); color: var(--paper); font-weight: 700;
+      padding: 12px 20px; border-radius: 999px; box-shadow: var(--shadow);
+      opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; z-index: 50;
     }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-    #mic-denied-hint {
-      display: none;
-      background: var(--surface);
-      border: 1px solid #444;
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      text-align: center;
-      max-width: 400px;
-      line-height: 1.5;
+    /* ── SUMMARY ────────────────────────────────────────────────────────────── */
+    .view-summary { justify-content: center; }
+    .summary-wrap {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 22px; text-align: center;
     }
+    .summary-wrap > * { animation: rise .5s both; }
+    .summary-wrap > *:nth-child(2) { animation-delay: .08s; }
+    .summary-wrap > *:nth-child(3) { animation-delay: .16s; }
+    .summary-wrap > *:nth-child(4) { animation-delay: .24s; }
+    .sum-title { font-size: 40px; margin: 0; }
+    .unlocked-celebrate { display: grid; gap: 8px; color: var(--gold); font-weight: 700; }
+    .unlock-emojis span { font-size: 44px; display: inline-block; animation: pop .5s both; margin: 0 3px; }
+    .unlock-emojis span:nth-child(2) { animation-delay: .1s; }
+    .unlock-emojis span:nth-child(3) { animation-delay: .2s; }
+    .sum-math {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; justify-content: center;
+      font-family: var(--fs-display); font-weight: 600;
+    }
+    .sum-min { font-size: 30px; }
+    .sum-math .op { color: var(--ink-soft); font-size: 22px; }
+    .sum-mom { font-size: 30px; color: var(--travel); }
+    .sum-pts { font-size: 38px; font-weight: 900; color: var(--gold); }
+    .sum-next { font-size: 17px; color: var(--ink-soft); margin: 0; }
+    .sum-next strong { color: var(--ink); }
+    .sum-streak { font-weight: 700; margin: 0; }
+    .btn-done {
+      margin-top: 6px; padding: 15px 52px; border-radius: 999px;
+      font-family: var(--fs-display); font-weight: 600; font-size: 19px; color: #fff5e3;
+      background: linear-gradient(180deg, var(--wood), var(--wood-2)); box-shadow: var(--shadow);
+    }
+    .btn-done:active { transform: translateY(2px); }
+
+    /* ── COLLECTION ─────────────────────────────────────────────────────────── */
+    .coll-head { text-align: center; position: relative; padding-top: 6px; }
+    .coll-head h1 { font-size: 30px; margin: 2px 0 4px; }
+    .coll-head .back {
+      position: absolute; left: 0; top: 2px; width: 42px; height: 42px; border-radius: 999px;
+      font-size: 22px; background: var(--paper-2); border: 1px solid var(--line); line-height: 1;
+    }
+    .coll-head .back:active { transform: scale(.94); }
+    .coll-sub { color: var(--ink-soft); font-size: 13px; margin: 0; font-weight: 500; }
+    .coll-next { color: var(--gold); font-weight: 700; margin: 6px 0 0; }
+    .coll-next strong { color: var(--ink); }
+
+    .world {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+      margin-top: 18px; padding-bottom: 24px;
+    }
+    .view-collection.cooled .world { filter: grayscale(1) opacity(.6); transition: filter .8s; }
+
+    .stamp {
+      aspect-ratio: 1; border-radius: 16px; padding: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      text-align: center; animation: pop .4s both; animation-delay: calc(var(--i) * 16ms);
+    }
+    .stamp-emoji { font-size: 30px; line-height: 1; }
+    .stamp-name { font-family: var(--fs-display); font-weight: 600; font-size: 13px; line-height: 1.05; }
+    .stamp-meta { font-size: 10px; font-weight: 700; letter-spacing: .02em; }
+
+    .stamp.unlocked {
+      background: linear-gradient(160deg, #fbf0d6, var(--paper-3));
+      border: 1.5px solid var(--gold);
+      box-shadow: 0 8px 18px -12px rgba(120, 80, 20, .6), inset 0 1px 0 rgba(255,255,255,.4);
+    }
+    .stamp.unlocked .stamp-meta { color: var(--gold); }
+    .stamp.unlocked:nth-child(3n)   { transform: rotate(-1.4deg); }
+    .stamp.unlocked:nth-child(3n+1) { transform: rotate(1.1deg); }
+
+    .stamp.locked {
+      background: repeating-linear-gradient(45deg, var(--paper-2), var(--paper-2) 9px, var(--paper) 9px, var(--paper) 18px);
+      border: 1.5px dashed var(--line);
+      color: var(--ink-soft);
+    }
+    .stamp.locked .stamp-emoji { opacity: .55; }
+    .stamp:active { transform: scale(.95); }
+
+    .fact-sheet {
+      position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 16px);
+      width: min(420px, calc(100% - 36px));
+      background: var(--ink); color: var(--paper);
+      border-radius: 18px; padding: 16px 20px; box-shadow: var(--shadow);
+      display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center;
+      opacity: 0; transition: opacity .28s, transform .28s; z-index: 60;
+    }
+    .fact-sheet.show { opacity: 1; transform: translate(-50%, 0); }
+    .fact-emoji { grid-row: span 2; font-size: 34px; }
+    .fact-name { font-family: var(--fs-display); font-weight: 700; font-size: 18px; }
+    .fact-body { font-size: 14px; color: #e9dcc2; }
   </style>
 </head>
 <body>
+  <main id="root"></main>
 
-  <div class="topbar">
-    <h1>Cello Tracker</h1>
-    <a class="nav-link" href="/settings">⚙ Settings</a>
-  </div>
-
-  <div id="https-warning">⚠️ HTTPS required — mic and wake lock will not work over HTTP.</div>
-
-  <div class="timer-label">Playing time</div>
-  <div id="playing" class="timer">00:00</div>
-
-  <div id="detection-badge">● Not detecting</div>
-
-  <button id="btn-toggle">▶ Start Session</button>
-
-  <p id="session-line"></p>
-
-  <p id="status"></p>
-
-  <p id="lifetime"></p>
-
-  <p id="wake-lock-status">Wake lock: —</p>
-
-  <p id="mic-denied-hint">
-    Microphone access was denied.<br>
-    On iOS: <strong>Settings → Safari → Microphone → Allow</strong>
-  </p>
-
+  <!-- Classic globals first: define `CelloDetector` (class) + `SettingsStore` (const),
+       both reachable from the module below. Unchanged, field-tested. -->
   <script src="detector.js"></script>
   <script src="settings.js"></script>
-  <script>
-    // ── Elements ──────────────────────────────────────────────────────────────
-    const btn            = document.getElementById('btn-toggle');
-    const badge          = document.getElementById('detection-badge');
-    const playingEl      = document.getElementById('playing');
-    const sessionLineEl  = document.getElementById('session-line');
-    const statusEl       = document.getElementById('status');
-    const lifetimeEl     = document.getElementById('lifetime');
-    const wlEl           = document.getElementById('wake-lock-status');
-    const deniedEl       = document.getElementById('mic-denied-hint');
-    const httpsWarn      = document.getElementById('https-warning');
-
-    // ── HTTPS guard ───────────────────────────────────────────────────────────
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      httpsWarn.style.display = 'block';
-    }
-
-    // ── Session storage (this app's own data) ─────────────────────────────────
-    const SESSIONS_KEY = 'cello.sessions';
-
-    function loadSessions() {
-      try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]'); }
-      catch { return []; }
-    }
-
-    function saveSession(startMs, endMs, playMs) {
-      // Skip throwaway sessions (started and stopped with nothing played).
-      if (playMs < 1000) return;
-      const arr = loadSessions();
-      arr.push({
-        start:     new Date(startMs).toISOString(),
-        end:       new Date(endMs).toISOString(),
-        playingMs: Math.round(playMs),
-        sessionMs: endMs - startMs,
-      });
-      localStorage.setItem(SESSIONS_KEY, JSON.stringify(arr));
-    }
-
-    // ── Detector ──────────────────────────────────────────────────────────────
-    // Main app only consumes resolution + lifecycle; it never renders frames.
-    const det = new CelloDetector(SettingsStore.load());
-
-    det.onDetectionChange(onDetectionChange);
-    det.onStatus(handleStatus);
-
-    // ── State ─────────────────────────────────────────────────────────────────
-    let active       = false;
-    let sessionStart = null;   // wall-clock (Date.now) of session start
-    let playingMs    = 0;      // banked detected time this session
-    let playStart    = null;   // performance.now() while currently detecting
-    let tickTimer    = null;
-
-    function currentPlayingMs() {
-      return playingMs + (playStart !== null ? performance.now() - playStart : 0);
-    }
-
-    // ── Detection → playing-time accumulation ─────────────────────────────────
-    function onDetectionChange(on) {
-      if (on) {
-        playStart = performance.now();
-      } else if (playStart !== null) {
-        playingMs += performance.now() - playStart;
-        playStart = null;
-      }
-      setBadge(on);
-    }
-
-    // ── Display ───────────────────────────────────────────────────────────────
-    function formatClock(ms) {
-      const s = Math.floor(ms / 1000);
-      const m = Math.floor(s / 60);
-      const h = Math.floor(m / 60);
-      const mm = String(m % 60).padStart(2, '0');
-      const ss = String(s % 60).padStart(2, '0');
-      return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-    }
-
-    function formatHM(ms) {
-      const m = Math.round(ms / 60000);
-      const h = Math.floor(m / 60);
-      return h > 0 ? `${h}h ${m % 60}m` : `${m}m`;
-    }
-
-    function updateDisplay() {
-      playingEl.textContent = formatClock(currentPlayingMs());
-      sessionLineEl.textContent = sessionStart
-        ? `Session ${formatClock(Date.now() - sessionStart)}`
-        : '';
-    }
-
-    function renderLifetime() {
-      const arr = loadSessions();
-      if (!arr.length) { lifetimeEl.textContent = 'No sessions logged yet'; return; }
-      const total = arr.reduce((s, x) => s + (x.playingMs || 0), 0);
-      lifetimeEl.textContent =
-        `Lifetime: ${formatHM(total)} played · ${arr.length} session${arr.length > 1 ? 's' : ''}`;
-    }
-
-    function setBadge(on) {
-      badge.classList.toggle('on', on);
-      badge.textContent = on ? '● Cello detected' : '● Not detecting';
-    }
-
-    function setButtonActive(a) {
-      btn.classList.toggle('active', a);
-      btn.textContent = a ? '■ Stop Session' : '▶ Start Session';
-    }
-
-    function setWakeLockStatus(state) {
-      const labels = {
-        active:      'Wake lock: active 🟢',
-        released:    'Wake lock: released (tab hidden) 🟡',
-        unavailable: 'Wake lock: unavailable 🔴',
-        idle:        'Wake lock: —',
-      };
-      wlEl.textContent = labels[state] ?? 'Wake lock: —';
-    }
-
-    function setStatus(text) { statusEl.textContent = text; }
-
-    // ── Detector status events ────────────────────────────────────────────────
-    function handleStatus(evt) {
-      switch (evt.kind) {
-        case 'requesting-mic':   setStatus('Requesting microphone…'); break;
-        case 'reconnecting':     setStatus('Reconnecting…'); break;
-        case 'reconnecting-mic': setStatus('Reconnecting — requesting microphone…'); break;
-        case 'listening':        setStatus(''); break;
-        case 'wakelock':         setWakeLockStatus(evt.state); break;
-        case 'error':            handleDetectorError(evt.error); break;
-      }
-    }
-
-    // Detector already tore down audio; bank what was played and reset to idle.
-    function handleDetectorError(err) {
-      if (playStart !== null) { playingMs += performance.now() - playStart; playStart = null; }
-      if (sessionStart) saveSession(sessionStart, Date.now(), playingMs);
-      stopTicking();
-      active = false;
-      sessionStart = null;
-      setBadge(false);
-      setButtonActive(false);
-      btn.disabled = false;
-      renderLifetime();
-      updateDisplay();
-
-      if (err?.name === 'NotAllowedError') {
-        setStatus('Microphone access lost — session ended. Tap Start to try again.');
-        deniedEl.style.display = 'block';
-      } else {
-        setStatus(`Session interrupted — ${err?.message ?? 'unknown error'}. Tap Start to try again.`);
-      }
-    }
-
-    // ── Session start / stop ──────────────────────────────────────────────────
-    function startTicking() { tickTimer = setInterval(updateDisplay, 250); }
-    function stopTicking()  { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
-
-    async function startSession() {
-      btn.disabled = true;
-      deniedEl.style.display = 'none';
-      setStatus('');
-
-      // Pick up any param changes made in /settings since page load.
-      det.setParams(SettingsStore.load());
-
-      try {
-        await det.start();
-      } catch (err) {
-        if (err.name === 'NotAllowedError') {
-          setStatus('Microphone access denied. Check browser settings.');
-          deniedEl.style.display = 'block';
-        } else if (err.name === 'NotFoundError') {
-          setStatus('No microphone found on this device.');
-        } else {
-          setStatus(`Error — ${err.message}`);
-        }
-        btn.disabled = false;
-        return;
-      }
-
-      active       = true;
-      sessionStart = Date.now();
-      playingMs    = 0;
-      playStart    = null;
-      setBadge(false);
-      setButtonActive(true);
-      btn.disabled = false;
-      startTicking();
-      updateDisplay();
-    }
-
-    function stopSession() {
-      det.stop();
-      if (playStart !== null) { playingMs += performance.now() - playStart; playStart = null; }
-      stopTicking();
-      if (sessionStart) saveSession(sessionStart, Date.now(), playingMs);
-
-      active = false;
-      sessionStart = null;
-      setBadge(false);
-      setButtonActive(false);
-      setStatus('');
-      updateDisplay();     // freezes on the final playing time until next start
-      renderLifetime();
-    }
-
-    btn.addEventListener('click', () => {
-      if (active) stopSession();
-      else startSession();
-    });
-
-    // ── Init ──────────────────────────────────────────────────────────────────
-    renderLifetime();
-    updateDisplay();
-  </script>
-
+  <!-- ESM controller: load → project → render. -->
+  <script type="module" src="main.js"></script>
 </body>
 </html>
