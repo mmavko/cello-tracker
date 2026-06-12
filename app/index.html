@@ -36,21 +36,19 @@
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html {
-      margin: 0; min-height: 100%;
-      overflow-x: hidden;   /* drop a sub-pixel horizontal scroller in mobile Safari */
-      /* Background on <html> so it also paints behind the iOS status/address bars +
-         the overscroll ("rubber-band") area. iOS tints those bars from the solid
-         background-COLOR (not the gradient image), so we keep the gradient's extremes
-         close to var(--paper) and set the solid base to var(--paper) too — the bar
-         then matches the content at both edges (no seam), and nothing shows white. */
-      background:
-        radial-gradient(120% 90% at 50% -10%, #f5ebd6 0%, var(--paper) 50%, #ece1c8 100%)
-        var(--paper);
-    }
+    /* App-shell: lock the document so it never scrolls or rubber-bands — this kills
+       the horizontal "drag", the pull-to-refresh, and the overscroll that revealed
+       the behind-the-bar seams (so Safari now behaves like add-to-home). The single
+       scroll surface is #root. All colour comes from <body>; #root is transparent.
+       The background is a soft glow that fades to a UNIFORM var(--paper) at every
+       edge, so the iOS status/address bars tint to --paper with no seam at top OR
+       bottom — whatever they sample, it's --paper. */
+    html, body { height: 100%; margin: 0; overflow: hidden; }
     body {
-      margin: 0; min-height: 100dvh;
-      overflow-x: hidden;
+      overscroll-behavior: none;
+      background:
+        radial-gradient(46% 40% at 50% 44%, #fbf3e1 0%, var(--paper) 100%)
+        var(--paper);
       font-family: var(--fs-body);
       color: var(--ink);
       -webkit-font-smoothing: antialiased;
@@ -64,9 +62,12 @@
     }
 
     #root {
+      height: 100%;
+      overflow-y: auto;                 /* the ONE scroll surface (e.g. Collection) */
+      overscroll-behavior: contain;     /* its scroll never chains to the document */
+      -webkit-overflow-scrolling: touch;
       max-width: 480px;
       margin: 0 auto;
-      min-height: 100dvh;
       padding: max(22px, env(safe-area-inset-top)) 22px max(22px, env(safe-area-inset-bottom));
       display: flex;
       flex-direction: column;
