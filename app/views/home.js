@@ -76,13 +76,29 @@ export function render({ root, state, actions }) {
   root.querySelector("#start").addEventListener("click", () => actions.go("practice"));
   root.querySelector("#open-collection").addEventListener("click", () => actions.go("collection"));
 
-  // Hidden entry to the test panel: long-press (~800ms) the streak. Deliberately
+  // Hidden entry to the test panel: long-press (~700ms) the streak. Deliberately
   // undiscoverable in normal tapping; the 🧪 chip is the backstop if used.
+  //
+  // iOS Safari cancels a Pointer Events long-press — it claims the touch for its
+  // own selection/callout/scroll gesture and fires `pointercancel`, killing the
+  // timer before it can fire. So we use touch events with preventDefault() (+
+  // `touch-action: none` in CSS) to keep the gesture ours, and a small movement
+  // tolerance so a still hold survives micro-jitter. Mouse events cover desktop.
   const streakEl = root.querySelector(".streak");
-  let lp = null;
-  const cancelLP = () => { clearTimeout(lp); lp = null; };
-  streakEl.addEventListener("pointerdown", () => { lp = setTimeout(() => actions.go("test"), 800); });
-  streakEl.addEventListener("pointerup", cancelLP);
-  streakEl.addEventListener("pointerleave", cancelLP);
-  streakEl.addEventListener("pointercancel", cancelLP);
+  let lpTimer = null, lpFrom = null;
+  const lpEnd = () => { clearTimeout(lpTimer); lpTimer = null; lpFrom = null; };
+  const lpBegin = (x, y) => {
+    lpFrom = { x, y };
+    lpTimer = setTimeout(() => { lpTimer = null; actions.go("test"); }, 700);
+  };
+  const lpMove = (x, y) => { if (lpFrom && Math.hypot(x - lpFrom.x, y - lpFrom.y) > 12) lpEnd(); };
+
+  streakEl.addEventListener("touchstart", (e) => { e.preventDefault(); const t = e.touches[0]; lpBegin(t.clientX, t.clientY); }, { passive: false });
+  streakEl.addEventListener("touchmove", (e) => { const t = e.touches[0]; lpMove(t.clientX, t.clientY); }, { passive: true });
+  streakEl.addEventListener("touchend", lpEnd);
+  streakEl.addEventListener("touchcancel", lpEnd);
+  streakEl.addEventListener("mousedown", (e) => lpBegin(e.clientX, e.clientY));
+  streakEl.addEventListener("mousemove", (e) => lpMove(e.clientX, e.clientY));
+  streakEl.addEventListener("mouseup", lpEnd);
+  streakEl.addEventListener("mouseleave", lpEnd);
 }
