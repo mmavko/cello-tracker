@@ -56,26 +56,29 @@ test("4 · look-ahead momentum (entering 2 → tier 3)", () => {
   assert.equal(s.today.pointsToday, 44); // round(35 × 1.25 = 43.75)
 });
 
-// 5 — Break via gap
-test("5 · break via gap resets streak, preserves longest", () => {
+// 5 — Break via gap (Phase 3: the initial banked freeze absorbs the FIRST empty
+// day, so a real break now needs two consecutive empties — then longest is kept).
+test("5 · two empty days break the streak, preserve longest", () => {
   const s = project(inputsWith([
     sess("2026-06-01", 30), sess("2026-06-02", 30), sess("2026-06-03", 30), // streak → 3
-    sess("2026-06-05", 30),                                                  // 06-04 empty
-  ]), { today: "2026-06-05" });
-  assert.equal(s.daysIndex["2026-06-04"], "missed");
-  assert.equal(s.streak.current, 1); // rebuilt at 06-05
+    sess("2026-06-06", 30),                                                  // 06-04, 06-05 empty
+  ]), { today: "2026-06-06" });
+  assert.equal(s.daysIndex["2026-06-04"], "frozen");  // freeze absorbs the first slip
+  assert.equal(s.daysIndex["2026-06-05"], "missed");  // second consecutive empty → break
+  assert.equal(s.streak.current, 1); // rebuilt at 06-06
   assert.equal(s.streak.longest, 3);
 });
 
-// 6 — Today in progress, sub-floor
-test("6 · today sub-floor: streak held, atRisk, entering-tier points", () => {
+// 6 — Today in progress, sub-floor (Phase 3: atRisk is now false because the
+// banked freeze would absorb an empty today — see protection P19 for atRisk=true).
+test("6 · today sub-floor: streak held, entering-tier points, freeze covers it", () => {
   const s = project(inputsWith([sess("2026-06-01", 30), sess("2026-06-02", 30), sess("2026-06-03", 10)]), { today: "2026-06-03" });
   assert.equal(s.today.secured, false);
   assert.equal(s.today.status, "open");
-  assert.equal(s.streak.current, 2);     // held at entering
-  assert.equal(s.streak.atRisk, true);
-  assert.equal(s.momentum, 1.0);         // entering tier(2)
-  assert.equal(s.today.pointsToday, 10); // round(10 × 1.0)
+  assert.equal(s.streak.current, 2);      // held at entering
+  assert.equal(s.streak.atRisk, false);   // a freeze is banked → today wouldn't break
+  assert.equal(s.momentum, 1.0);          // entering tier(2)
+  assert.equal(s.today.pointsToday, 10);  // round(10 × 1.0)
 });
 
 // 6b — …then today crosses the floor
@@ -88,15 +91,18 @@ test("6b · today crosses floor: secured, streak+1, momentum bumps a tier", () =
   assert.equal(s.streak.atRisk, false);
 });
 
-// 7 — Sub-floor PAST day (discriminating: entering tier ≠ reset tier)
-test("7 · sub-floor past day earns entering-tier points then breaks", () => {
+// 7 — Sub-floor break day earns ENTERING-tier points (discriminating: entering tier
+// ≠ post-break tier). Freeze is exhausted on 06-04 first, so 06-05's stray minutes
+// land on a genuine break and are still valued at the entering tier, not the reset.
+test("7 · stray minutes on a break day earn entering-tier points", () => {
   const s = project(inputsWith([
     sess("2026-06-01", 30), sess("2026-06-02", 30), sess("2026-06-03", 30), // streak → 3
-    sess("2026-06-04", 10),                                                  // sub-floor, < today
-  ]), { today: "2026-06-05" });                                             // today empty
-  assert.equal(s.daysIndex["2026-06-04"], "missed");
-  // 30 + 30 + round(30×1.25)=38 + round(10×1.25)=13 + 0 = 111
-  // (if day-4 were wrongly valued at the post-break tier 1.0 it would be 10 → total 108)
+    sess("2026-06-05", 10),                                                  // 06-04 empty → frozen
+  ]), { today: "2026-06-06" });                                             // 06-05 sub-floor → break
+  assert.equal(s.daysIndex["2026-06-04"], "frozen");
+  assert.equal(s.daysIndex["2026-06-05"], "missed");
+  // 30 + 30 + round(30×1.25)=38 + frozen 0 + round(10×1.25)=13 = 111
+  // (if day-5 were wrongly valued at the post-break tier 1.0 it would be 10 → total 108)
   assert.equal(s.points.total, 111);
   assert.equal(s.streak.current, 0);
 });
@@ -111,13 +117,14 @@ test("8 · collection unlock at total 257", () => {
   assert.equal(s.points.toNextTile, 103); // 360 − 257
 });
 
-// 9 — Dim flag
-test("9 · dim: fresh 0, after break 1, play-after-break 0", () => {
-  assert.equal(project(inputsWith([]), { today: "2026-06-06" }).collection.dim, 0);
-  // 06-01 played, 06-02 missed, today 06-03 still empty
-  assert.equal(project(inputsWith([sess("2026-06-01", 30)]), { today: "2026-06-03" }).collection.dim, 1);
-  // …then play today → cleared
-  assert.equal(project(inputsWith([sess("2026-06-01", 30), sess("2026-06-03", 30)]), { today: "2026-06-03" }).collection.dim, 0);
+// 9 — Dim is now CONTINUOUS (Phase 3): 1 → 0 as she earns the world back over
+// 2 × your-usual minutes. Break = streak ×3 (target 2×30 = 60), then comeback.
+test("9 · dim continuous: fresh 0, broken 1, mid-recovery a float, recovered 0", () => {
+  const broken = [sess("2026-06-01", 30), sess("2026-06-02", 30), sess("2026-06-03", 30)]; // 06-04, 06-05 empty
+  assert.equal(project(inputsWith([]), { today: "2026-06-06" }).collection.dim, 0);          // fresh
+  assert.equal(project(inputsWith(broken), { today: "2026-06-06" }).collection.dim, 1);      // just broken, no return
+  assert.equal(project(inputsWith([...broken, sess("2026-06-06", 30)]), { today: "2026-06-06" }).collection.dim, 0.5); // 30/60 back
+  assert.equal(project(inputsWith([...broken, sess("2026-06-06", 60)]), { today: "2026-06-06" }).collection.dim, 0);   // 60/60 → vivid
 });
 
 // 10 — Determinism & order independence
@@ -146,16 +153,16 @@ test("12 · multi-record day sums by playedSec; day = local date of start", () =
   assert.equal(s.today.secured, true); // 18 min ≥ 15
 });
 
-// 13 — Reserved inputs ignored
-test("13 · reserved inputs (lessonDays/holidays/bonuses/restWeekday) ignored", () => {
+// 13 — Phase 3: only bonuses[] stays reserved (Phase 5); lessonDays / holidays /
+// restWeekday are now LIVE inputs that change the projection.
+test("13 · bonuses[] still inert; lessonDays now active", () => {
   const sessions = [sess("2026-06-01", 30), sess("2026-06-02", 30)];
-  const a = project(inputsWith(sessions), { today: "2026-06-02" });
-  const b = project({
-    config: { dailyFloorMin: 15, restWeekday: 0, lessonLenMin: 45 },
-    sessions,
-    lessonDays: ["2026-06-01", "2026-06-02"],
-    holidays: [{ start: "2026-06-01", end: "2026-06-02" }],
-    bonuses: [{ date: "2026-06-02", points: 999 }],
-  }, { today: "2026-06-02" });
-  assert.deepEqual(a, b);
+  const base = project(inputsWith(sessions), { today: "2026-06-02" });
+  // bonuses[] is realized in Phase 5 — must not affect Phase-3 output
+  const withBonus = project({ ...inputsWith(sessions), bonuses: [{ date: "2026-06-02", points: 999 }] }, { today: "2026-06-02" });
+  assert.deepEqual(withBonus, base);
+  // a lesson on an otherwise-empty day is now honored → streak + status change
+  const withLesson = project({ ...inputsWith(sessions), lessonDays: ["2026-06-03"] }, { today: "2026-06-03" });
+  assert.equal(withLesson.daysIndex["2026-06-03"], "lesson");
+  assert.equal(withLesson.streak.current, 3);
 });

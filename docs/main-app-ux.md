@@ -307,6 +307,10 @@ pause.
 - Days show **Holiday**: streak **paused** (neither grows nor breaks), Momentum
   preserved, **excluded from regen** (a long trip can't mint free freezes). The
   streak resumes where it left off on return.
+- **Playing beats the pause.** If she practices to the floor (or a lesson is logged)
+  on a holiday day, that day counts as Played/Lesson — streak +1 — and only the
+  *unplayed* holiday days stay paused. The holiday is a safety net for the days off,
+  never a ceiling on the days she practiced anyway.
 - **Pre-declared on purpose** — set ahead of time, so it can never be an
   after-the-fact loophole to undo a lazy day. Lives in the **Parent area** (§7.6).
 
@@ -525,14 +529,14 @@ for each elapsed day D (oldest → newest):
     played = soundSec(D) >= dailyFloor
     lesson = D in lessonDays                     # parent-credited; no mic, no floor
 
-    if D within a declared holiday range:
-        status = holiday                         # paused: no streak/break/regen, no freeze use
-    elif played or lesson:                        # played-equivalent — the two STACK
+    if played or lesson:                          # played-equivalent — BEATS holiday; the two STACK
         status = "played" if played else "lesson" # both → "played" + a lesson badge
         streak.current += 1                       # ONCE, even when both are true
         addRecovery((played ? soundMinutes(D) : 0) + (lesson ? lessonLenMin : 0))
         regen()
         # points stack — see note below
+    elif D within a declared holiday range:
+        status = holiday                         # paused: no streak/break/regen, no freeze use
     elif weekday(D) == config.restWeekday:        # planned weekly day off
         status = rest                             # streak HELD; no freeze used; no regen
     elif freezeBanked and previousDayStatus != frozen:
@@ -556,8 +560,11 @@ session) **+** `lessonLen × Momentum` if a lesson is logged **+** any surprise
 bonuses. So played and lesson *stack*; a stray short session can never block the
 parent from logging a lesson, and a home-practice-plus-lesson day pays for both.
 The day-type machine above governs only streak / Momentum / regen / recovery — it
-never gates points. Precedence among the *non-played* types still matters: the
-planned **Rest day is taken before the scarce emergency Freeze**. Today (the
+never gates points. **Played-equivalent is evaluated first**, so practicing (or a
+logged lesson) on a day inside a holiday range *counts* — streak +1 — rather than
+being paused; the holiday only protects the days she **didn't** play. Precedence
+among the *non-played* types still matters: the planned **Rest day is taken before
+the scarce emergency Freeze**. Today (the
 in-progress day) is evaluated live — the "Today counts ✓" turnstile fires the
 moment `soundSec ≥ dailyFloor`, and the world recolours *during* a comeback
 session.
@@ -567,7 +574,9 @@ Key invariants:
   consecutive unprotected empty days = break.
 - Only **played-equivalent** days (Played, Lesson) grow `streak.current`, Momentum,
   and `regenCount`. Rest, Frozen and Holiday hold the streak but never grow it.
-- Holiday days are skipped entirely (no streak/break/regen, no freeze consumed).
+- **Unplayed** holiday days are skipped entirely (no streak/break/regen, no freeze
+  consumed). A holiday day she *plays* (≥ floor, or a logged lesson) resolves as
+  Played/Lesson and counts normally — playing always beats the pause.
 - Logging a lesson for **today or yesterday** is the only retroactive edit, and the
   replay makes it self-consistent (refunds a freeze, un-breaks a break).
 - A break never touches `points.total` or `collection.unlockedTileIds` — only the

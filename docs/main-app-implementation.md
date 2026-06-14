@@ -30,7 +30,7 @@ supersedes the phasing notes that used to live in `main-app-ux.md` §12 and
 | 0 | Scaffolding & test harness | infra | — | — | **✅ done** |
 | 1 | Engine: core loop | pure | tests only | 0 | **✅ done** ([spec](main-app-phase-1.md)) |
 | 2 | UI: core loop | shell | ⏳ on-device test | 1 | **built + live** ([spec](main-app-phase-2.md)) |
-| 3 | Engine: day-types & protection | pure | tests only | 1 | outline |
+| 3 | Engine: day-types & protection | pure | tests only | 1 | **✅ done** ([spec](main-app-phase-3.md)) |
 | 4 | UI: protection & parent area | shell | ✅ | 2, 3 | outline |
 | 5 | Polish & stickiness | both | ✅ | 4 | outline |
 
