@@ -281,12 +281,15 @@ pause.
 - **Parent-gated, one tap.** The child brings it to a parent, who logs it. It must
   be parent-authorized: a credit that grants a played day *and* points without the
   mic would be trivially gameable if the child could self-tap it.
-- **One-day grace.** The parent can log a lesson for **today or yesterday only** —
-  covering the realistic "I forgot to log yesterday's lesson, I'll do it during
-  today's practice." Mechanically, logging adds the date to a `lessonDays` set and
-  the engine re-evaluates from that date (§9); backfilling yesterday therefore
-  **auto-undoes** whatever yesterday had become — refunds a spent freeze, even
-  un-breaks a break and re-colours the world.
+- **Any past date — parent-gating is the only guard.** The parent can log a lesson
+  for **any date up to today** (no date-window restriction); entering the right date
+  is the parent's responsibility. Parent-gating alone prevents self-crediting — a
+  date window would add friction without adding safety, and genuine mistakes are
+  fixable from a planned super-admin/engineer view (implementation Phase 8).
+  Mechanically, logging adds the date to a
+  `lessonDays` set and the engine re-evaluates from that date (§9); backfilling a
+  past date therefore **auto-undoes** whatever that day had become — refunds a spent
+  freeze, even un-breaks a break and re-colours the world.
 - **Earns points:** `lessonLen × Momentum` (parent sets the lesson length, e.g.
   45 min). Makes the day **played-equivalent** for streak, Momentum and regen, with
   no floor check — there's no mic reading.
@@ -329,7 +332,7 @@ pause.
 | Real life | Day-type | Who triggers | When |
 |---|---|---|---|
 | Practiced at home | Played | automatic (mic) | live |
-| Weekly lesson | Lesson | parent, one tap | today or yesterday |
+| Weekly lesson | Lesson | parent, one tap | any past date |
 | Regular day off (e.g. Sunday) | Rest day | automatic (scheduled weekday) | that weekday |
 | Forgot / unplanned slip | Frozen | automatic (emergency freeze) | at rollover |
 | Trip, multi-day, known ahead | Holiday | parent, in advance | pre-declared range |
@@ -441,15 +444,19 @@ the parent.
 ### 7.6 Parent area (gated)
 - Entry gated by a simple PIN (the child shouldn't self-serve here).
 - Controls:
-  - **Log a lesson** — one tap, choose **today or yesterday** (§5.3). The high-
-    frequency parent action; keep it the most prominent button here.
-  - Set **rest weekday** (the weekly day off, §5.1) and **lesson length** (minutes,
-    for lesson points).
-  - Set **daily floor** minutes; declare **Holiday** ranges.
-  - View stats (totals, longest streak, weekly minutes); optionally grant an extra
-    freeze.
-- Detection tuning stays where it is (`/settings`); this is *motivation* config,
-  kept separate.
+  - **Log a lesson** — choose **any past date** (default today) and the lesson's
+    length in minutes (§5.3). The high-frequency parent action; keep it the most
+    prominent button here.
+  - Set **rest weekday** (the weekly day off, §5.1).
+  - Set **daily floor** minutes; declare **Holiday** ranges; optionally grant an
+    extra freeze.
+- **Gating is for controls, not visibility.** The PIN exists so the child can't
+  self-credit lessons or move the floor — it does **not** hide information. Stats
+  (totals, longest streak, weekly minutes) are **child-visible**: the headline ones
+  sit on Home (§7.1), the detailed ones beside the calendar (§7.5).
+- Detection tuning stays on its own page (the **Detector** page; reached from here
+  for a clean UI, but unprotected — the child may visit it directly); this is
+  *motivation* config, kept separate.
 
 ---
 
@@ -577,8 +584,8 @@ Key invariants:
 - **Unplayed** holiday days are skipped entirely (no streak/break/regen, no freeze
   consumed). A holiday day she *plays* (≥ floor, or a logged lesson) resolves as
   Played/Lesson and counts normally — playing always beats the pause.
-- Logging a lesson for **today or yesterday** is the only retroactive edit, and the
-  replay makes it self-consistent (refunds a freeze, un-breaks a break).
+- Logging a lesson for **any past date** is a retroactive edit, and the replay makes
+  it self-consistent (refunds a freeze, un-breaks a break).
 - A break never touches `points.total` or `collection.unlockedTileIds` — only the
   fragile layer (streak, Momentum) resets; the world re-dims and recolours over
   `2 × your-usual` minutes of return practice (§4.3).
@@ -593,8 +600,8 @@ Key invariants:
 | **Gaming the floor** with 15 min of junk to keep the streak | The floor is *detected cello sound*, not wall-clock — she can't fake it without actually bowing. The detector is the enforcement. |
 | **Streak dread / anxiety** (real with kids + streaks) | Break is soft (treasure safe), Freeze forgives slips, Holiday removes trip-anxiety. Tone throughout is "rebuild," not "ruined." |
 | **Detected sound ≪ wall-clock** (home practice has tuning, page turns, pauses) | Set the floor with this in mind: 15 min *detected* ≈ a 25–30 min real session. Floor is parent-tunable if it lands wrong. |
-| **Gaming the lesson credit** (it grants a played day + points with no mic) | Parent-gated: only a parent can log a lesson, and only for today/yesterday. The child can't self-credit. |
-| **Lesson forgotten past the one-day grace** | Costs at most one day; absorbed by the emergency Freeze, and any break is soft and recoverable (§4.3). Parent can still avoid it by logging same-day. |
+| **Gaming the lesson credit** (it grants a played day + points with no mic) | Parent-gated is the sole guard: only a parent (behind the PIN) can log a lesson. The child can't self-credit. There is no date window — entering the correct date is the parent's responsibility, and a mistakenly-logged lesson is removable from the super-admin view (impl Phase 8). |
+| **Lesson logged late** | No grace window to miss: a parent can log it for the real date whenever they remember, and the replay back-dates the credit correctly. A genuinely forgotten lesson costs at most one day — absorbed by the emergency Freeze, and any break is soft and recoverable (§4.3). |
 | **Mid-week Holiday desyncing the weekly cadence** (the bug that prompted this) | Fixed: the weekly cadence is the dedicated Rest day, independent of the freeze counter; Holiday no longer touches regen timing. |
 | **"Your usual" marker becomes a new ceiling** | It's a soft, positive-only reference; nothing bad happens below it; points keep climbing past it. |
 | **Light/tired day she genuinely can't reach the floor** | Freeze absorbs the occasional shortfall; parent can lower the floor; break is recoverable. |
@@ -612,7 +619,7 @@ Key invariants:
 | Points formula | `minutes × Momentum` | All minutes count. |
 | Rest weekday | parent-set (e.g. Sunday); may be none | The planned weekly day off (§5.1); owns the weekly cadence. |
 | Lesson length | 45 min | Lesson points = `lessonLen × Momentum` (§5.3). |
-| Lesson log grace | today or yesterday | How far back a parent may credit a lesson. |
+| Lesson log window | any past date | A parent may credit a lesson for any date up to today; parent-gating (not a date window) is the anti-gaming guard (§5.3). |
 | Freeze bank | 1 | Max held at once; emergency backstop only. |
 | Freeze regen | 7 played-equivalent days | Played or Lesson days (not rest/frozen/holiday). |
 | Max consecutive frozen days | 1 | Second consecutive unprotected miss = break. |

@@ -339,5 +339,6 @@ core loop.
 - **Points are never gated by the day-type machine — LOCKED** (UX §9): detected
   minutes (and a logged lesson) always earn, even on holiday/rest/frozen/missed days;
   the machine governs only streak / Momentum / regen / recovery.
-- **Lesson grace (today/yesterday) is a shell constraint, not engine** — `project()`
-  replays any `lessonDays` date; Phase 4's parent UI enforces the window.
+- **No lesson date-window — engine replays any date** — `project()` replays any
+  `lessonDays` date, and the parent UI imposes no window either (parent-gating is the
+  sole anti-gaming guard; UX §5.3). The only UI cap is "not in the future."
