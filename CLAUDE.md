@@ -1,6 +1,6 @@
 # CLAUDE.md — cello-tracker
 
-**Orient first:** `chronicles.md` (current state + history) is your orientation — absorb it before acting. A `SessionStart` hook injects it automatically here, so you normally won't need to open it; only `Read` it if it isn't already in your context. Then `docs/` = design specs (`main-app-*`), `README.md` = the door.
+**Orient first:** project memory lives in `.chronicles/` — `Read` `.chronicles/digest.md` (current state, invariants, gotchas, open questions) before acting. The `SessionStart` hook only signals its *presence* (entry count + last-updated), **not** its content, so it isn't auto-injected — you must read it. Individual `.chronicles/entries/*` hold the full history and are read **on demand**, only when a task needs the deeper *why* (the digest's invariants point to the exact entry; `.chronicles/index.md` is the chronological list). Then `docs/` = design specs (`main-app-*`), `README.md` = the door.
 
 ## Browser verification → delegate to a Haiku subagent
 This project's loop is **edit → `./deploy.sh` → verify in a browser**, so browser work dominates and it's the #1 context sink here. **When a check needs 3+ browser actions, delegate it** — `Agent`, `subagent_type: general-purpose`, `model: haiku`, a precise checklist, "report ≤N lines, no screenshots." With Agent Teams enabled, keep one QA worker and `SendMessage` it follow-ups (resumes warm, no cold-start re-pay) rather than re-spawning. Full rationale: the user-level "Delegate browser work" lifehack in `~/.claude/CLAUDE.md`.

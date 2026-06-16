@@ -1,0 +1,7 @@
+# 2026-06-12 — Cloudflare Pages caches JS for 4h; page-URL queries can't bust it → `deploy.sh`
+
+**Motivation:** after each deploy the user kept seeing the **stale** app in a normal tab (a private tab showed the new one); even adding `?v2` to the page URL didn't help. Why?
+
+**Finding (reusable):** CF Pages defaults static JS to `Cache-Control: max-age=14400` (4h). The HTML revalidates (`max-age=0`), but the JS **modules** it imports keep their own fixed URLs (`views/home.js`, no query) → the browser serves them stale from disk cache. **A query string on the *page* URL cannot bust sub-resources — only each module's OWN url can change.** Private tab worked only because it ignores the persistent cache; iOS Safari has no hard-reload. (Edge nuance: `?cb=` curl checks *bypass* the edge cache, so they masked the problem during verification — check the plain URL.)
+
+**Fix — `deploy.sh` cache-busts module URLs.** It copies `app/` → a temp dir and `sed`s `?v=<build>` onto every `<script src>` and relative `.js` import, then `wrangler pages deploy`s that. Because the HTML is always-revalidated (added **`app/_headers`**, `max-age=0`), a *normal* page reload pulls the new versioned module URLs automatically — no private tab, no clearing site data, and the old cached files just become orphans. **`app/version.js`** (`VERSION`, `"dev"` in source, stamped by the script) shows in the Home footer + test panel so a stale page is obvious at a glance. App source stays build-free — the stamp is a deploy-time `cp` + `sed` only.
