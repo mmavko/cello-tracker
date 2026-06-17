@@ -16,3 +16,11 @@ lives in `.chronicles/`, not here.
 - [ ] **Live readout "Day" omits the test-offset indicator.** The test panel shows
   `(+N)` when the clock is advanced; the parent readout shows only the bare date.
   Mirror the `(+N)` so a tainted/offset state is obvious here too (cosmetic).
+
+## Home (Phase 5 — `app/views/home.js`)
+
+- [ ] **"best N" + "🌟 your best ever" persist through a growing streak.** While a
+  streak grows, `current === longest` every day, so the flourish is a constant label
+  (and "best 5" is redundant next to "5 days in a row"). Make it a *moment*: gate the
+  🌟 to the day a record is actually set, and/or only show "best N" when
+  `longest > current` (a past record worth chasing).
