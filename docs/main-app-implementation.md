@@ -38,7 +38,7 @@ supersedes the phasing notes that used to live in `main-app-ux.md` §12 and
 | 3 | Engine: day-types & protection | pure | tests only | 1 | **✅ done** ([spec](main-app-phase-3.md)) |
 | 3a | Maintenance: lesson-minutes retrofit + Detector rename | both | tests only | 1–3 | **✅ done** *(tombstoned)* |
 | 4 | UI: parent area + store mutators | shell | ✅ | 3a | **spec ready** ([spec](main-app-phase-4.md)) |
-| 5 | UI: status surfacing (chips + recolour) | shell | ✅ | 4 | outline |
+| 5 | UI: status surfacing (chips + recolour) | shell | ✅ | 4 | **spec ready** ([spec](main-app-phase-5.md)) |
 | 6 | UI: history & stats (calendar) | shell | ✅ | 4 | outline |
 | 7 | Bonuses & "your usual" anchor | both | ✅ | 4 | outline |
 | 8 | Super-admin / engineer view | shell | ✅ | 4 | outline |
@@ -217,7 +217,11 @@ child app — now testable because Phase 4 can create those states.
 **Done when (iPhone field-test).** Chips reflect states created via the parent area;
 the recolour animates smoothly on a break→return; longest-streak shows.
 
-**Files.** `app/views/{home,collection}.js`, `app/main.js`.
+**Files.** `app/views/{home,collection}.js`, `app/index.html` (chip/recolour CSS),
+plus one derived engine output — `today.isRestDay` in `app/motivation.js` + a
+`test/` assertion (today resolves to `open`, so the rest-day chip can't read
+`today.status`; see [phase-5 spec](main-app-phase-5.md) decision #1). The rest is
+shell. Spec status: **ready** ([spec](main-app-phase-5.md)).
 
 ---
 
