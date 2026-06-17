@@ -37,7 +37,7 @@ supersedes the phasing notes that used to live in `main-app-ux.md` §12 and
 | 2 | UI: core loop | shell | ⏳ on-device test | 1 | **built + live** ([spec](main-app-phase-2.md)) |
 | 3 | Engine: day-types & protection | pure | tests only | 1 | **✅ done** ([spec](main-app-phase-3.md)) |
 | 3a | Maintenance: lesson-minutes retrofit + Detector rename | both | tests only | 1–3 | **✅ done** *(tombstoned)* |
-| 4 | UI: parent area + store mutators | shell | ✅ | 3a | outline |
+| 4 | UI: parent area + store mutators | shell | ✅ | 3a | **spec ready** ([spec](main-app-phase-4.md)) |
 | 5 | UI: status surfacing (chips + recolour) | shell | ✅ | 4 | outline |
 | 6 | UI: history & stats (calendar) | shell | ✅ | 4 | outline |
 | 7 | Bonuses & "your usual" anchor | both | ✅ | 4 | outline |
@@ -180,8 +180,11 @@ unblocks observing protection in the child UI (Phases 5–6).
 - Controls (UX §7.6): prominent **Log a lesson** — pick **any past date** (date
   stepper, default today, capped at today) with a per-lesson **minute stepper**
   (+5/−5, pre-filled from the last lesson); set **rest weekday**; set **daily
-  floor**; declare **Holiday** ranges; optionally **grant a freeze**. Parent-gating
-  is the *sole* anti-gaming guard (no date-window restriction — UX §5.3).
+  floor**; **protect days off** (sick day or trip) — a parent-declared protected day
+  is the `Holiday` primitive (a 1-day range, or wider for a trip), so it needs no
+  engine change and never spends the auto-freeze (see [phase-4 spec](main-app-phase-4.md)
+  decision #3). Parent-gating is the *sole* anti-gaming guard (no date-window
+  restriction — UX §5.3).
 - Store mutators + actions: append/edit `lessonDays`/`holidays`, set `config` →
   reproject.
 
