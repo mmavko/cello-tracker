@@ -13,13 +13,14 @@ const sess = (date, min, hour = 10) => ({
   playedSec: Math.round(min * 60),
 });
 const mk = (over = {}) => ({
-  config: { dailyFloorMin: 15, restWeekday: null, lessonLenMin: 45, ...(over.config || {}) },
+  config: { dailyFloorMin: 15, restWeekday: null, ...(over.config || {}) },
   sessions:   over.sessions   || [],
   lessonDays: over.lessonDays || [],
   holidays:   over.holidays   || [],
   bonuses:    [],
 });
 const played = (dates) => dates.map((d) => sess(d, 30));
+const lessonDay = (date, lenMin = 45) => ({ date, lenMin });
 
 // ── Rest day ──────────────────────────────────────────────────────────────────
 
@@ -94,11 +95,11 @@ test("P6 · new user starts with a banked freeze", () => {
 
 // ── Lesson ────────────────────────────────────────────────────────────────────
 
-// P7 — a logged lesson grows the streak with no mic and earns lessonLen × Momentum.
+// P7 — a logged lesson grows the streak with no mic and earns its own lenMin × Momentum.
 test("P7 · lesson grows the streak, no mic", () => {
   const s = project(mk({
     sessions: played(["2026-06-01", "2026-06-02"]),
-    lessonDays: ["2026-06-03"],                                   // no session that day
+    lessonDays: [lessonDay("2026-06-03")],                        // no session that day
   }), { today: "2026-06-03" });
   assert.equal(s.today.status, "lesson");
   assert.equal(s.today.secured, false);                          // no floor crossing (no mic)
@@ -111,7 +112,7 @@ test("P7 · lesson grows the streak, no mic", () => {
 test("P8 · played + lesson stack (streak +1 once, points add)", () => {
   const s = project(mk({
     sessions: [...played(["2026-06-01", "2026-06-02"]), sess("2026-06-03", 30)],
-    lessonDays: ["2026-06-03"],
+    lessonDays: [lessonDay("2026-06-03")],
   }), { today: "2026-06-03" });
   assert.equal(s.today.status, "played");                        // detected play wins the label
   assert.equal(s.streak.current, 3);                             // +1 once, not 4
@@ -124,7 +125,7 @@ test("P9 · lesson backfill un-breaks a break", () => {
   const noLesson = project(base, { today: "2026-06-04" });
   assert.equal(noLesson.daysIndex["2026-06-03"], "missed");
   assert.equal(noLesson.streak.current, 1);
-  const withLesson = project({ ...base, lessonDays: ["2026-06-03"] }, { today: "2026-06-04" });
+  const withLesson = project({ ...base, lessonDays: [lessonDay("2026-06-03")] }, { today: "2026-06-04" });
   assert.equal(withLesson.daysIndex["2026-06-03"], "lesson");
   assert.equal(withLesson.streak.current, 3);                    // 1(06-01) → frozen → 2 → 3
   assert.equal(withLesson.recovery.active, false);               // the break never happened
@@ -134,7 +135,7 @@ test("P9 · lesson backfill un-breaks a break", () => {
 test("P10 · lesson backfill refunds a spent freeze", () => {
   const base = mk({ sessions: played(["2026-06-01", "2026-06-02", "2026-06-03", "2026-06-05"]) }); // 06-04 frozen
   assert.equal(project(base, { today: "2026-06-05" }).freeze.banked, false);
-  const refunded = project({ ...base, lessonDays: ["2026-06-04"] }, { today: "2026-06-05" });
+  const refunded = project({ ...base, lessonDays: [lessonDay("2026-06-04")] }, { today: "2026-06-05" });
   assert.equal(refunded.daysIndex["2026-06-04"], "lesson");
   assert.equal(refunded.freeze.banked, true);                    // the freeze 06-04 had spent is back
 });
@@ -225,7 +226,7 @@ test("P17 · recovery target = 2 × your-usual (and the no-history default)", ()
   }), { today: "2026-06-06" });                                  // 06-04 frozen, 06-05 break
   assert.equal(varied.recovery.minutesTarget, 40);
   // no detected-played days at all (a lesson-only streak) → DEFAULT_USUAL_MIN 35 → target 70
-  const noHistory = project(mk({ lessonDays: ["2026-06-01", "2026-06-02"] }), { today: "2026-06-05" });
+  const noHistory = project(mk({ lessonDays: [lessonDay("2026-06-01"), lessonDay("2026-06-02")] }), { today: "2026-06-05" });
   // 06-03 frozen, 06-04 missed → recovery armed at the default
   assert.equal(noHistory.recovery.minutesTarget, 70);
 });
@@ -262,11 +263,24 @@ test("P19 · atRisk only when today would actually break", () => {
 test("P20 · lesson credits recovery minutes", () => {
   const s = project(mk({
     sessions: played(["2026-06-01", "2026-06-02", "2026-06-03"]), // target 60
-    lessonDays: ["2026-06-06"],                                   // 06-04 frozen, 06-05 break, 06-06 lesson
+    lessonDays: [lessonDay("2026-06-06")],                        // 06-04 frozen, 06-05 break, 06-06 lesson
   }), { today: "2026-06-06" });
   assert.equal(s.today.status, "lesson");
   assert.equal(s.recovery.active, true);
-  assert.equal(s.recovery.minutesDone, 45);                      // lessonLen toward the 60 target
+  assert.equal(s.recovery.minutesDone, 45);                      // the lesson's lenMin toward the 60 target
+});
+
+// P21 — two lessons of DIFFERENT lengths each project their own points (guards
+// against a regression to a single global lessonLenMin).
+test("P21 · two different-length lessons project per-lesson points", () => {
+  const s = project(mk({
+    lessonDays: [lessonDay("2026-06-01", 20), lessonDay("2026-06-02", 50)],
+  }), { today: "2026-06-02" });
+  assert.equal(s.daysIndex["2026-06-01"], "lesson");
+  assert.equal(s.daysIndex["2026-06-02"], "lesson");
+  assert.equal(s.streak.current, 2);
+  assert.equal(s.today.pointsToday, 50);                         // round(50 × tier(2)=1.0)
+  assert.equal(s.points.total, 70);                              // round(20×1.0) + round(50×1.0)
 });
 
 // ── Determinism ───────────────────────────────────────────────────────────────
@@ -276,7 +290,7 @@ test("D1 · deterministic & order-independent with all inputs", () => {
   const inputs = mk({
     config: { restWeekday: 0 },
     sessions: [sess("2026-06-02", 30), sess("2026-06-01", 30), sess("2026-06-09", 20)],
-    lessonDays: ["2026-06-05", "2026-06-03"],
+    lessonDays: [lessonDay("2026-06-05"), lessonDay("2026-06-03")],
     holidays: [{ start: "2026-06-11", end: "2026-06-12" }, { start: "2026-06-06", end: "2026-06-07" }],
   });
   const a = project(inputs, { today: "2026-06-12" });

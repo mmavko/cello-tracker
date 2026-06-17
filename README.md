@@ -11,7 +11,7 @@ Live at **https://cello.mavko.consulting**
 ## Layout
 
 ```
-app/            the web app — static files, no build step ("/" main, "/settings" tuning)
+app/            the web app — static files, no build step ("/" main, "/detector" tuning)
 docs/           design — detection pipeline, platform patterns, main-app-* docs
 test/           node --test suite (npm test)
 chronicles.md   the project's memory — status, decisions, what was tried and killed

@@ -46,9 +46,9 @@ The **only** module besides the views that touches `localStorage`. It persists t
 ```jsonc
 // localStorage['cello.progress']  (= the persisted `inputs`)
 {
-  config: { dailyFloorMin: 15, restWeekday: null, lessonLenMin: 45 },
+  config: { dailyFloorMin: 15, restWeekday: null },
   sessions: [ { start, end, playedSec } ],   // one record per listening period
-  lessonDays: [],   // reserved (Phase 3/4)
+  lessonDays: [],   // reserved — { date, lenMin } objects (Phase 3/4)
   holidays:   [],   // reserved (Phase 4)
   bonuses:    []    // reserved (Phase 5)
 }
@@ -297,8 +297,9 @@ Rebuilt page. Load order matters (classic globals before the module):
 - The page holds a single `#root` the controller renders into, plus the one
   kid-facing stylesheet (inline or `app/app.css` — implementer's call; keep it one
   file, no build).
-- `detector.js` / `settings.js` / `settings.html` stay **untouched** (arch §2). The
-  old placeholder body and its `cello.sessions` logic are removed; `/settings`
+- `detector.js` / `settings.js` / `detector.html` (the detector-tuning page,
+  formerly `settings.html` — renamed in Phase 3a) stay **untouched** (arch §2). The
+  old placeholder body and its `cello.sessions` logic are removed; `/detector`
   (detection tuning) is unchanged and still reachable.
 
 ---
@@ -335,7 +336,7 @@ stamp matches), and confirm:
 5. **A missed day dims the world** — simulate (or wait for) a break: streak → 0,
    Momentum → ×1.0, the Collection greyscales, points/tiles **preserved**; the next
    played day re-brightens it.
-6. **No console errors;** `/settings` still tunes detection; `window`-global detector
+6. **No console errors;** `/detector` still tunes detection; `window`-global detector
    path intact.
 7. **Start → immediate Stop leaves no live mic** — tap Start, then Stop *before*
    granting or denying the mic prompt (and again right after granting). The detector
@@ -364,7 +365,7 @@ accidental edit).
 - **Detector touched** (separate from the UI): `app/detector.js` got a `start()`
   cancellation fix (a `stop()` during the mic request can't leave a live session).
 - **Unchanged:** `app/motivation.js`, `app/theme.js`, `app/settings.js`,
-  `app/settings.html`.
+  `app/detector.html` (formerly `app/settings.html` — renamed in Phase 3a).
 
 ---
 

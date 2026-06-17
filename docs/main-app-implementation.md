@@ -36,7 +36,7 @@ supersedes the phasing notes that used to live in `main-app-ux.md` §12 and
 | 1 | Engine: core loop | pure | tests only | 0 | **✅ done** ([spec](main-app-phase-1.md)) |
 | 2 | UI: core loop | shell | ⏳ on-device test | 1 | **built + live** ([spec](main-app-phase-2.md)) |
 | 3 | Engine: day-types & protection | pure | tests only | 1 | **✅ done** ([spec](main-app-phase-3.md)) |
-| 3a | Maintenance: lesson-minutes retrofit + Detector rename | both | tests only | 1–3 | **spec'd** ([spec](main-app-phase-3a.md)) *(ephemeral)* |
+| 3a | Maintenance: lesson-minutes retrofit + Detector rename | both | tests only | 1–3 | **✅ done** *(tombstoned)* |
 | 4 | UI: parent area + store mutators | shell | ✅ | 3a | outline |
 | 5 | UI: status surfacing (chips + recolour) | shell | ✅ | 4 | outline |
 | 6 | UI: history & stats (calendar) | shell | ✅ | 4 | outline |
@@ -162,42 +162,9 @@ it. This is UX §5 in full.
 
 ## Phase 3a — Maintenance: lesson-minutes retrofit + Detector rename
 
-**Ephemeral.** This phase only *corrects* Phases 1–3 and the settings page; it adds
-no new feature surface. Its edits land **in place** in the relevant docs so the spec
-stays seamless, then this section collapses to a tombstone (see "How we use this doc"
-§5). Must land **before** Phase 4, since the parent-area lesson UI builds on the new
-shape.
-
-**Goal.** Make a logged lesson carry its **own minutes**, and stop calling the
-detector-tuning page "settings."
-
-**Scope.**
-- **Per-lesson minutes.** `lessonDays[]` changes from `["YYYY-MM-DD"]` to
-  `[{ date, lenMin }]`. The engine reads each lesson's own `lenMin` for points
-  (`lenMin × Momentum`) and recovery credit, replacing the single global
-  `config.lessonLenMin` — which is **removed**. The parent-UI default is a hardcoded
-  constant (45); the log-a-lesson stepper (Phase 4) pre-fills from the **last
-  recorded lesson's `lenMin`** (derived, never persisted) so most entries stay
-  one-tap.
-- **No migration.** `lessonDays` has always been `[]` in the wild (reserved, never
-  written), so there is nothing to convert.
-- **Rename `settings` → `Detector`.** The page is detector-tuning only; the name was
-  misleading. Rename the page/label (its localStorage keys via `SettingsStore` are
-  untouched). Its on-Home entry point is **relocated under the parent area in Phase
-  4** — the page itself stays directly reachable (no protection; child may visit).
-- **Docs edited in place:** `phase-1`/`phase-3` (input schema + lesson points/
-  recovery), `phase-2` (store shape), `ux` §5.3/§7.6/§11 (lesson length is
-  per-lesson), `arch` §1 (`lessonDays` shape). No `cello.prefs` key — the prefill is
-  derived, not stored.
-
-**Out of scope.** Any new screen or control (that's Phase 4).
-
-**Done when.** `npm test` green, including a fixture with two lessons of **different
-lengths** projecting correct stacked points; no `config.lessonLenMin` remains; the
-detector page reads "Detector."
-
-**Files.** `app/motivation.js`, `app/store.js`, `app/settings.html`→`app/detector.html`
-(+label), `test/` updates, the in-place doc edits above.
+**Done — tombstoned.** `lessonDays[]` is now `[{date, lenMin}]` (per-lesson points/
+recovery, `config.lessonLenMin` removed); `app/settings.html` → `app/detector.html`.
+Full history: chronicles + git.
 
 ---
 
@@ -313,14 +280,12 @@ earlier phases can skip defensive guards.
 
 ## Next action
 
-Phases 0–3 are **built**. Phase 2 (the real app) is **live** at
+Phases 0–3a are **built**. Phase 2 (the real app) is **live** at
 https://cello.mavko.consulting; Phase 3 (engine: day-types & protection) is green but
 **not yet wired to any UI** — pure engine + tests only. `npm test` passes.
 
-**Next = Phase 3a** (maintenance): the lesson-minutes retrofit + the `settings`→
-`Detector` rename, edited **in place** across Phases 1–3 / ux / arch, with green
-tests — it must land before the Phase 4 parent-area UI builds on the new lesson
-shape. Then Phase 4 (parent area + store mutators).
+**Next = Phase 4** (UI: parent area + store mutators), now unblocked since 3a's
+lesson shape (`{date, lenMin}`) and the Detector rename are in place.
 
 Still outstanding from Phase 2: the **iPhone field-test** of the core loop (mic
 accrual, the quiet "Today counts ✓", persistence across reloads, an unlock, a break

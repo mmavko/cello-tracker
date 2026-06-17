@@ -48,13 +48,12 @@ and ignored.
 inputs = {
   config: {
     dailyFloorMin: 15,        // ✓ a day is "played" at ≥ this many detected minutes
-    restWeekday: null,        // reserved (Phase 3)
-    lessonLenMin: 45          // reserved (Phase 3)
+    restWeekday: null         // reserved (Phase 3)
   },
   sessions: [                 // ✓ one record per listening period (mic on→off)
     { start: "2026-06-06T14:30:00", end: "2026-06-06T15:01:00", playedSec: 1860 }
   ],
-  lessonDays: [],             // reserved (Phase 3)
+  lessonDays: [],             // reserved — { date, lenMin } objects (Phase 3)
   holidays:   [],             // reserved (Phase 3)
   bonuses:    []              // reserved (Phase 5)
 }

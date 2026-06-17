@@ -12,9 +12,9 @@ const KEY = "cello.progress";
 
 function defaults() {
   return {
-    config: { dailyFloorMin: 15, restWeekday: null, lessonLenMin: 45 },
+    config: { dailyFloorMin: 15, restWeekday: null },
     sessions: [], // { start, end, playedSec } — local-dated timestamps (see localISO)
-    lessonDays: [], // reserved (Phase 3/4)
+    lessonDays: [], // { date, lenMin } — reserved (first writer is Phase 4)
     holidays: [], // reserved (Phase 4)
     bonuses: [], // reserved (Phase 5)
   };

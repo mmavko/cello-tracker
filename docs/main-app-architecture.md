@@ -23,9 +23,9 @@ happened; recompute everything else.**
 
 | Persisted **inputs** (facts) | Derived by `project()` (never stored) |
 |---|---|
-| `config` — floor, restWeekday, lessonLen | per-day `status`, `streak.current`, `longest` |
+| `config` — floor, restWeekday | per-day `status`, `streak.current`, `longest` |
 | `sessions[]` — `{start, end, playedSec}` listening periods | per-day played totals, **your-usual** (median) |
-| `lessonDays[]` — parent-credited dates | `momentum`, `points.total`, `toNextTile` |
+| `lessonDays[]` — `{date, lenMin}` parent-credited lessons | `momentum`, `points.total`, `toNextTile` |
 | `holidays[]` — `{start, end}` ranges | `collection.unlocked`, recovery / dim level |
 | `bonuses[]` — `{date, points}` realized awards | `freezeBanked`, `regenCount`, streak `atRisk` |
 
@@ -72,7 +72,7 @@ optimization, not needed initially.
 
 ```
 app/
-  detector.js   settings.js   settings.html   ← UNCHANGED (classic globals, field-tested)
+  detector.js   settings.js   detector.html   ← UNCHANGED (classic globals, field-tested)
   index.html        ← main-app shell: loads detector.js (classic) + main.js (module)
   parent.html       ← gated parent area (phase 2), its own module entry
 
@@ -94,7 +94,8 @@ package.json             ← { "type": "module", "scripts": { "test": "node --te
   views and by the test runner alike.
 - **Impure shell (browser only):** `store.js`, `main.js`, `views/*`. The only code
   that touches `localStorage`, the DOM, the clock, and `Math.random`.
-- **Untouched:** `detector.js` / `settings.js` / `settings.html` stay classic
+- **Untouched:** `detector.js` / `settings.js` / `detector.html` (the
+  detector-tuning page, formerly `settings.html` — renamed in Phase 3a) stay classic
   globals. `main.js` (a module) reads `window.CelloDetector`, and **only the
   practice view touches it** — so the fragile field-tested iOS recovery code is
   fully isolated from this refactor. Modularizing the detector later is optional

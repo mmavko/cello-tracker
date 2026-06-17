@@ -47,8 +47,7 @@ No persisted shape changes.
 | Input | Shape | Meaning |
 |---|---|---|
 | `config.restWeekday` | `0..6` (0=Sun) or `null` | The planned weekly day off (UX §5.1). `null` = none. |
-| `config.lessonLenMin` | minutes (default 45) | Lesson points = `lessonLenMin × Momentum`; lesson recovery credit. |
-| `lessonDays[]` | `["YYYY-MM-DD", …]` | Parent-credited lesson dates (no mic, no floor). UX §5.3. |
+| `lessonDays[]` | `[{ date, lenMin }, …]` | Parent-credited lesson dates, each with its own length (no mic, no floor). Lesson points = `lenMin × Momentum`; same `lenMin` feeds recovery credit. UX §5.3. |
 | `holidays[]` | `[{ start, end }, …]` | Inclusive `YYYY-MM-DD` ranges, pre-declared. UX §5.4. |
 
 `config.dailyFloorMin` and `sessions[]` are unchanged from Phase 1. The today/
@@ -63,7 +62,8 @@ backfill is automatic and general.
 ```
 playedMinOf(D)   = Σ playedSec of records whose start-date == D, ÷ 60   (Phase 1)
 detectedPlayed(D)= playedMinOf(D) ≥ config.dailyFloorMin
-lessonOn(D)      = D ∈ lessonDays
+lessonOn(D)      = D ∈ lessonDays.map(date)            // a Map<date, lenMin>; lessonOn tests membership
+lessonLenOf(D)   = lessonDays[D].lenMin                 // the day's own length, default 45
 inHoliday(D)     = ∃ h ∈ holidays : h.start ≤ D ≤ h.end
 weekdayOf(D)     = new Date(D+"T12:00:00Z").getUTCDay()    // 0=Sun; pure (given string)
 playedEquiv(D)   = detectedPlayed(D) || lessonOn(D)        // grows streak/Momentum/regen
@@ -104,7 +104,7 @@ if playedEquiv(D):                # PLAYED and/or LESSON — beats holiday; the 
     longest = max(longest, current)
     dayMom  = momentumFor(entering + 1)         # look-ahead tier (Phase-1 rule, LOCKED)
     regen()
-    addRecovery((detectedPlayed(D) ? min : 0) + (lessonOn(D) ? lessonLenMin : 0))
+    addRecovery((detectedPlayed(D) ? min : 0) + (lessonOn(D) ? lessonLenOf(D) : 0))
     if detectedPlayed(D): playedTotals.push(min)
 
 elif inHoliday(D):
@@ -129,7 +129,7 @@ else:
                    minutesDone: 0 }
 
 # ── points accrue EVERY day, independent of the machine above (UX §9 note) ─────
-lessonMin = (status in {"played","lesson"}) and lessonOn(D) ? lessonLenMin : 0
+lessonMin = (status in {"played","lesson"}) and lessonOn(D) ? lessonLenOf(D) : 0
 total += round((min + lessonMin) × dayMom)
 
 prevStatus     = status
@@ -203,7 +203,7 @@ dim      = recovery.active ? 1 - progress : 0
 ```
 
 - All practiced minutes count toward recovery (floor-gated **off** — welcome her
-  back), plus a logged lesson's `lessonLenMin`. Both flow through `addRecovery`,
+  back), plus a logged lesson's own `lenMin`. Both flow through `addRecovery`,
   including **today live**, so the world recolours *during* a comeback session.
 - Breaking again mid-recovery re-arms `recovery` (target recomputed, `minutesDone`
   0) → world re-dims fully.

@@ -290,9 +290,10 @@ pause.
   `lessonDays` set and the engine re-evaluates from that date (§9); backfilling a
   past date therefore **auto-undoes** whatever that day had become — refunds a spent
   freeze, even un-breaks a break and re-colours the world.
-- **Earns points:** `lessonLen × Momentum` (parent sets the lesson length, e.g.
-  45 min). Makes the day **played-equivalent** for streak, Momentum and regen, with
-  no floor check — there's no mic reading.
+- **Earns points:** `lenMin × Momentum`, where `lenMin` is **that lesson's own
+  length** (the parent sets it when logging, e.g. 45 min for a weekly lesson, more
+  for a longer masterclass). Makes the day **played-equivalent** for streak,
+  Momentum and regen, with no floor check — there's no mic reading.
 - **Stacks with detected play.** A lesson can always be logged regardless of any
   mic-detected sound that day, and its points **add on top** of whatever home
   practice earned. The day where she practiced at home *and* had a lesson is
@@ -476,8 +477,7 @@ Conceptual shape under `cello.progress`:
   "dailyFloorMin": 15,
   "theme": "world-tour",            // locked
   "config": {
-    "restWeekday": 0,               // 0=Sun … 6=Sat; null = no fixed rest day
-    "lessonLenMin": 45              // lesson points = lessonLenMin × Momentum
+    "restWeekday": 0                // 0=Sun … 6=Sat; null = no fixed rest day
   },
   "streak": {
     "current": 7,                   // grows on played-equivalent days only
@@ -495,7 +495,7 @@ Conceptual shape under `cello.progress`:
     "minutesDone": 0
   },
   "holidays":  [ { "start": "2026-07-10", "end": "2026-07-13" } ],
-  "lessonDays": ["2026-06-09"],     // dates parent-credited as lessons (no mic)
+  "lessonDays": [ { "date": "2026-06-09", "lenMin": 45 } ], // parent-credited lessons, each its own length (no mic)
   "days": {
     "2026-06-06": { "soundSec": 1980, "status": "played", "pointsEarned": 45 }
     // status ∈ played | lesson | rest | frozen | holiday | missed
@@ -535,11 +535,12 @@ def regen():                                   # played-equivalent days only
 for each elapsed day D (oldest → newest):
     played = soundSec(D) >= dailyFloor
     lesson = D in lessonDays                     # parent-credited; no mic, no floor
+    lessonLen = lessonDays[D].lenMin              # the lesson's own length, not a global
 
     if played or lesson:                          # played-equivalent — BEATS holiday; the two STACK
         status = "played" if played else "lesson" # both → "played" + a lesson badge
         streak.current += 1                       # ONCE, even when both are true
-        addRecovery((played ? soundMinutes(D) : 0) + (lesson ? lessonLenMin : 0))
+        addRecovery((played ? soundMinutes(D) : 0) + (lesson ? lessonLen : 0))
         regen()
         # points stack — see note below
     elif D within a declared holiday range:
@@ -563,7 +564,7 @@ def addRecovery(mins):
 
 **Points are separate and additive.** A day's earned points =
 `detectedMinutes × Momentum` (every detected minute, accrued live during the
-session) **+** `lessonLen × Momentum` if a lesson is logged **+** any surprise
+session) **+** `lesson's lenMin × Momentum` if a lesson is logged **+** any surprise
 bonuses. So played and lesson *stack*; a stray short session can never block the
 parent from logging a lesson, and a home-practice-plus-lesson day pays for both.
 The day-type machine above governs only streak / Momentum / regen / recovery — it
@@ -618,7 +619,7 @@ Key invariants:
 | Momentum tiers | ×1.0 → ×3.0 (§3.2) | Cap at ×3.0 at 60-day streak. |
 | Points formula | `minutes × Momentum` | All minutes count. |
 | Rest weekday | parent-set (e.g. Sunday); may be none | The planned weekly day off (§5.1); owns the weekly cadence. |
-| Lesson length | 45 min | Lesson points = `lessonLen × Momentum` (§5.3). |
+| Lesson length | per-lesson `lenMin`, parent sets each one (no global) | Lesson points = `lenMin × Momentum` (§5.3); the log-a-lesson stepper seeds 45 with no history, else pre-fills the last lesson's `lenMin` (derived, never stored). |
 | Lesson log window | any past date | A parent may credit a lesson for any date up to today; parent-gating (not a date window) is the anti-gaming guard (§5.3). |
 | Freeze bank | 1 | Max held at once; emergency backstop only. |
 | Freeze regen | 7 played-equivalent days | Played or Lesson days (not rest/frozen/holiday). |

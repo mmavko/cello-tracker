@@ -1,0 +1,17 @@
+# 2026-06-17 2017 — Phase 3a executed: per-lesson minutes + settings→Detector rename, both tombstoned
+
+Phase 3a (spec'd 2026-06-15) was implemented end-to-end: `lessonDays[]` moved from a date array to `{date, lenMin}` objects, and the detector-tuning page was renamed from `settings.html` to `detector.html`. `npm test` went 37/37 → 38/38 (new P21 fixture). The phase, being maintenance-only, then collapsed to a tombstone per its own convention.
+
+**Why:** A logged lesson should carry its own length — a masterclass shouldn't be worth the same as a quick weekly lesson — but the engine only had a single global `config.lessonLenMin` applied to every lesson. Separately, `settings.html` had grown to mean "detector tuning" only, and the name implied a broader scope (motivation config) that was never built there and never will be (that config lives in the Phase-4 parent area instead).
+
+**What was tried / decided:**
+- `app/motivation.js`: `lessonSet` (a `Set<date>`) became `lessonMap` (a `Map<date, lenMin>`, `?? 45` per entry defensively). Every touchpoint that read the global `lessonLenMin` — recovery credit, points — now reads the day's own `lenMin` from the map. `project()`'s signature and stacking semantics (streak +1 once, points add) are unchanged; only the source of the lesson length moved from global to per-lesson.
+- `app/store.js`: dropped `lessonLenMin` from the `config` defaults. No migration logic was needed — `lessonDays` has always been `[]` in the wild (reserved since Phase 1, never written by any shipped code), confirmed already in the 2026-06-15 plan.
+- Tests: updated all `lessonDays` fixtures across `motivation.test.js` and `protection.test.js` to the `{date, lenMin}` shape (added a `lessonDay(date, lenMin=45)` fixture helper). Added **P21**: two lessons of different lengths (20 and 50 min) in one fixture, asserting `pointsToday`/`points.total` reflect each lesson's own length — this is what would fail if the engine regressed to reading only the first entry's length or fell back to a hardcoded global.
+- `app/settings.html` → `app/detector.html` via `git mv`; updated `<title>` and `<h1>`. `app/settings.js` (the `SettingsStore` — detection-param persistence) and its localStorage keys were deliberately left untouched: this was a rename of the *page*, not of the detection-param storage. `app/views/home.js`'s gear-icon link updated to `detector.html`.
+- Doc edits landed in place across `README.md`, `docs/README.md` (the authoritative file map — also updated even though not in the spec's narrow scope list, since leaving it stale would actively mislead), `docs/main-app-architecture.md` §1/§2, `docs/main-app-phase-{1,2,3}.md`, `docs/main-app-ux.md` (§8 sketch, §9 pseudocode, §11 params table, §5.3 prose), and `docs/platform-foundations.md`.
+- Per the maintenance-phase convention (`main-app-implementation.md` §"How we use this doc"): `docs/main-app-phase-3a.md` collapsed to a one-line tombstone, the implementation roadmap's Phase 3a section collapsed likewise, the roadmap table row flipped to "✅ done (tombstoned)", and "Next action" now points at Phase 4 (no longer 3a).
+
+**Why not a migration path for `lessonDays`:** considered and rejected back in the 2026-06-15 planning entry, reconfirmed here — there's no on-disk data in the old shape to convert (the field has never been written by shipped code), so adding migration logic would be defending against a state that doesn't exist.
+
+[refines/supersedes: entries/2026-06-15-2323-phase-4-5-re-planned-renumbered-3a-8-docs-only-no.md]

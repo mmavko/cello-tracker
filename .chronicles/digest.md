@@ -1,16 +1,16 @@
 # Chronicles — Digest
-Last updated: 2026-06-15
+Last updated: 2026-06-17
 Last reconciled: 2026-06-16
 
 ## Current State
 
-**Phases 0–3 built; Phase 2 (the real app) is LIVE at https://cello.mavko.consulting.** Phase 3 (engine: day-types & protection) is built + green but **not wired to any UI yet** — pure-engine + tests only (`motivation.js` exposes `freeze`/`recovery`/day-type outputs that no view reads). `npm test` = **37/37** (16 core-loop, 20 protection P1–P20 + D1, smoke).
+**Phases 0–3a built; Phase 2 (the real app) is LIVE at https://cello.mavko.consulting.** Phase 3 (engine: day-types & protection) is built + green but **still not wired to any UI** — pure-engine + tests only (`motivation.js` exposes `freeze`/`recovery`/day-type outputs that no view reads). Phase 3a (maintenance: per-lesson minutes + `settings`→`Detector` rename) executed 2026-06-17 and is now tombstoned. `npm test` = **38/38** (16 core-loop, 21 protection P1–P21 + D1, smoke).
 
-**NEXT = Phase 3a** — ephemeral maintenance (per-lesson minutes + `settings`→`Detector` rename), spec'd in `docs/main-app-phase-3a.md`, no code yet; must precede Phase 4. Roadmap (re-planned 2026-06-15): `3a` maintenance → `4` parent area + store mutators → `5` status chips + gradual recolour → `6` calendar + detailed stats (deferrable) → `7` bonuses + your-usual anchor → `8` super-admin/engineer view.
+**NEXT = Phase 4** — UI: parent area + store mutators, now unblocked since 3a's lesson shape (`{date, lenMin}`) and the Detector rename are in place. Roadmap (re-planned 2026-06-15): `4` parent area + store mutators → `5` status chips + gradual recolour → `6` calendar + detailed stats (deferrable) → `7` bonuses + your-usual anchor → `8` super-admin/engineer view.
 
 Phase 2 is the impure shell over the pure engine: `store.js`, `main.js` (load→project→render loop), `views/{home,practice,summary,collection}.js`, `index.html` in the warm "musician's-passport" aesthetic (Fraunces/Hanken Grotesk; Collection = emoji-stamp grid). A hidden **test panel** (5-tap the 🔥) drives the whole date-driven loop without the mic. Phase-2 iPhone field-test still deferred.
 
-Design docs: `main-app-ux.md` (*what*), `main-app-architecture.md` (*how*), `main-app-implementation.md` (canonical roadmap 3a→8), `main-app-phase-{1,2,3}.md` (built) + `main-app-phase-3a.md` (next). `README.md` = the door (vision + deploy + repo map); `docs/` = current design; chronicles = *why*.
+Design docs: `main-app-ux.md` (*what*), `main-app-architecture.md` (*how*), `main-app-implementation.md` (canonical roadmap, 3a now a tombstone), `main-app-phase-{1,2,3}.md` (built; amended in place by 3a) + `main-app-phase-3a.md` (tombstoned). `README.md` = the door (vision + deploy + repo map); `docs/` = current design; chronicles = *why*.
 
 ## Invariants & Locked Decisions
 - **The engine is a pure projection, not a stateful object:** `project(inputs,{today}) → derivedState` recomputes streak/Momentum/points/Collection/freeze/recovery every call. Persist **facts only** (`config`, `sessions[]`, `lessonDays[]`, `holidays[]`, `bonuses[]`); never store a derived value. Clock + RNG are **injected** (engine never calls `Date.now()`/`Math.random()`) → fully deterministic and test-replayable. *Why this shape:* makes the brain separately testable and makes "lesson backfill un-breaks a break" a free replay over amended inputs. → entries/2026-06-06-1733-engineering-plan-build-roadmap-for-the-main-app.md
@@ -23,6 +23,8 @@ Design docs: `main-app-ux.md` (*what*), `main-app-architecture.md` (*how*), `mai
 - **Lesson logging is parent-gated only, ANY past date** (the one-day grace was removed — a date window adds friction without safety; parent-gating is the sole anti-gaming guard). **Stats are child-visible, not gated** — the PIN guards *controls* (self-crediting, moving the floor), never *visibility*. → entries/2026-06-15-2323-phase-4-5-re-planned-renumbered-3a-8-docs-only-no.md
 - **In-memory router, no URL hash** — chosen so the iOS back-swipe can't exit a live practice session, and so leaving practice always runs detector teardown. → entries/2026-06-12-1744-phase-2-built-deployed-the-real-app-opus-direct-de.md
 - **Session timestamps use `localISO()` (local date), never `toISOString()` (UTC)** — the engine keys a session's day on `start.slice(0,10)`; UTC mis-dates near midnight (a latent placeholder bug). → entries/2026-06-12-1744-phase-2-built-deployed-the-real-app-opus-direct-de.md
+- **Lesson length is per-lesson, not global.** `lessonDays[]` entries are `{date, lenMin}`; `config.lessonLenMin` is gone — points/recovery credit read each lesson's own `lenMin`. No migration was needed (the field was always `[]` in the wild). → entries/2026-06-17-2017-phase-3a-executed-per-lesson-minutes-detector-ren.md
+- **The detector-tuning page is `/detector` (`app/detector.html`), not `/settings`.** Renamed in Phase 3a; `app/settings.js` (`SettingsStore`, the detection-param store) keeps its filename and localStorage keys unchanged — only the page was renamed. → entries/2026-06-17-2017-phase-3a-executed-per-lesson-minutes-detector-ren.md
 
 ## Gotchas (still bite)
 - **Cloudflare Pages caches JS ~4h.** Deploy with **`./deploy.sh`**, never raw `wrangler` — it stamps `?v=<build>` onto every module URL. A query on the *page* URL can't bust sub-resources; only each module's own URL can. After deploying, confirm the **footer version stamp** matches the build before trusting any browser check. `?cb=` curls *bypass* the edge cache, so they mask staleness — curl the plain URL. → entries/2026-06-12-1742-cloudflare-pages-caches-js-for-4h-page-url-queries.md

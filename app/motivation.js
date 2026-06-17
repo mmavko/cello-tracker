@@ -92,9 +92,10 @@ export function project(inputs, ctx) {
   const cfg          = inputs.config ?? {};
   const floorMin     = cfg.dailyFloorMin ?? 15;
   const restWeekday  = cfg.restWeekday ?? null;     // 0=Sun … 6=Sat; null = none
-  const lessonLenMin = cfg.lessonLenMin ?? 45;
   const sessions     = inputs.sessions ?? [];
-  const lessonSet    = new Set(inputs.lessonDays ?? []);
+  const lessonMap    = new Map(
+    (inputs.lessonDays ?? []).map((l) => [l.date, l.lenMin ?? 45]),
+  );
   const holidays     = (inputs.holidays ?? []).filter(Boolean);
 
   const { sec: dailySec, min: dailyMin } = dailyMinutes(sessions);
@@ -105,7 +106,7 @@ export function project(inputs, ctx) {
   let from = today;
   const consider = (k) => { if (k && k < from && k <= today) from = k; };
   for (const k of Object.keys(dailySec)) consider(k);
-  for (const k of lessonSet) consider(k);
+  for (const k of lessonMap.keys()) consider(k);
   for (const h of holidays) consider(h.start);
 
   // ── replay state (carried oldest → newest) ──────────────────────────────────
@@ -146,7 +147,8 @@ export function project(inputs, ctx) {
   for (let D = from; D <= today; D = addDays(D, 1)) {
     const min         = playedMinOf(D);
     const detPlayed   = min >= floorMin;
-    const lesson      = lessonSet.has(D);
+    const lesson      = lessonMap.has(D);
+    const lessonLen   = lessonMap.get(D) ?? 0;
     const playedEquiv = detPlayed || lesson;
     const entering    = current;
     const prevBefore  = prevStatus;            // yesterday's status (for the atRisk model)
@@ -159,7 +161,7 @@ export function project(inputs, ctx) {
       longest = Math.max(longest, current);
       dayMom  = momentumFor(entering + 1);      // look-ahead tier (Phase-1 rule, LOCKED)
       regen();
-      addRecovery((detPlayed ? min : 0) + (lesson ? lessonLenMin : 0));
+      addRecovery((detPlayed ? min : 0) + (lesson ? lessonLen : 0));
       if (detPlayed) playedTotals.push(min);
     } else if (inHoliday(D)) {
       status = "holiday";                       // PAUSED: no streak/break/regen/freeze
@@ -180,7 +182,7 @@ export function project(inputs, ctx) {
     // Points accrue every day, independent of the machine: detected minutes + a
     // logged lesson, valued at the day's Momentum (UX §9 note). Held/missed days
     // value stray sub-floor minutes at the entering tier.
-    const lessonMin = (status === "played" || status === "lesson") && lesson ? lessonLenMin : 0;
+    const lessonMin = (status === "played" || status === "lesson") && lesson ? lessonLen : 0;
     const dayPoints = Math.round((min + lessonMin) * dayMom);
     total += dayPoints;
 

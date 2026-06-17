@@ -11,7 +11,7 @@ const sess = (date, min, hour = 10) => ({
   playedSec: Math.round(min * 60),
 });
 const inputsWith = (sessions) => ({
-  config: { dailyFloorMin: 15, restWeekday: null, lessonLenMin: 45 },
+  config: { dailyFloorMin: 15, restWeekday: null },
   sessions,
   lessonDays: [],
   holidays: [],
@@ -162,7 +162,7 @@ test("13 · bonuses[] still inert; lessonDays now active", () => {
   const withBonus = project({ ...inputsWith(sessions), bonuses: [{ date: "2026-06-02", points: 999 }] }, { today: "2026-06-02" });
   assert.deepEqual(withBonus, base);
   // a lesson on an otherwise-empty day is now honored → streak + status change
-  const withLesson = project({ ...inputsWith(sessions), lessonDays: ["2026-06-03"] }, { today: "2026-06-03" });
+  const withLesson = project({ ...inputsWith(sessions), lessonDays: [{ date: "2026-06-03", lenMin: 45 }] }, { today: "2026-06-03" });
   assert.equal(withLesson.daysIndex["2026-06-03"], "lesson");
   assert.equal(withLesson.streak.current, 3);
 });

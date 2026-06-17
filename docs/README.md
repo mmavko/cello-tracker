@@ -38,8 +38,9 @@ app/detector.js    CelloDetector — mic + Web Audio + DSP (HPS, f0, gates) + th
                    emits onFrame (viz data) / onDetectionChange / onStatus.
                    Classic global script (loaded via <script src>).
 app/settings.js    SettingsStore — detection-param defaults + localStorage load/save.
-app/settings.html  Tuning UI at "/settings". Writes params via SettingsStore, runs a
-                   live detector, renders the spectrum / f0 strip / gate visualizations.
+app/detector.html  Tuning UI at "/detector" (formerly "/settings", renamed Phase 3a).
+                   Writes params via SettingsStore, runs a live detector, renders the
+                   spectrum / f0 strip / gate visualizations.
 app/index.html     "/" — currently the placeholder timer; the real motivation app
                    replaces it in Phase 2 (main-app-implementation.md).
 app/motivation.js  The motivation engine — pure projection project(inputs,{today}) →
@@ -51,8 +52,8 @@ package.json       type:module + test script. No bundler, no transpile.
 ```
 
 For the detection docs: algorithms live in `detector.js`, visualizations/tuning in
-`settings.html` — so a spec's "integration point" means `detector.js` for detection
-logic and `settings.html` for any UI/visualization. The motivation engine's contract
+`detector.html` — so a spec's "integration point" means `detector.js` for detection
+logic and `detector.html` for any UI/visualization. The motivation engine's contract
 lives in `main-app-architecture.md` / `main-app-phase-1.md`.
 
 ---
@@ -114,7 +115,7 @@ Implementation specs live in:
 
 Both docs are self-contained briefs for a coding agent: algorithm, parameter
 ranges, UI controls, visualizations, and integration points — detection logic
-into `app/detector.js`, controls and visualizations into `app/settings.html`.
+into `app/detector.js`, controls and visualizations into `app/detector.html`.
 
 ## Out of scope
 

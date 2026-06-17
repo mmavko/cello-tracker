@@ -11,7 +11,7 @@ and session teardown are encapsulated in the `CelloDetector` class
 callback (`{kind:'wakelock', state}`, `{kind:'reconnecting'}`,
 `{kind:'error', error}`, …) instead of touching the DOM directly. The HTTPS
 guard and canvas hi-DPI sizing live in the consuming pages (`index.html`,
-`settings.html`). The code samples below show the underlying patterns; the
+`detector.html`). The code samples below show the underlying patterns; the
 sequence is unchanged, only relocated into the class and its callbacks.
 
 ---
