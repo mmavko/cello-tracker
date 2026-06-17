@@ -18,11 +18,16 @@ export function render({ root, state, actions }) {
   );
   const recent = unlocked.slice(-3).reverse();
 
+  // Status line: a protection/credit label as prefix, with accrued mic minutes
+  // appended whenever she played some (sub-floor minutes still earn points, even on
+  // a holiday/rest/lesson day — so never hide them). "at home" disambiguates the
+  // lesson line, where the lesson's own lenMin and her home practice are two numbers.
   const shownMin = Math.round(today.playedMin);
   let statusLine;
-  if (today.status === "holiday")      statusLine = "Holiday — enjoy your day off 🏝️";
-  else if (today.isRestDay)            statusLine = "Rest day — playing's optional today";
-  else if (today.secured)              statusLine = `Today counts ✓ · ${shownMin} min`;
+  if (today.secured)                   statusLine = `Today counts ✓ · ${shownMin} min`;
+  else if (today.status === "lesson")  statusLine = `Lesson logged ✓${shownMin >= 1 ? ` · ${shownMin} min at home` : ""}`;
+  else if (today.status === "holiday") statusLine = shownMin >= 1 ? `Holiday 🏝️ · ${shownMin} min` : "Holiday — enjoy your day off 🏝️";
+  else if (today.isRestDay)            statusLine = shownMin >= 1 ? `Rest day · ${shownMin} min` : "Rest day — playing's optional today";
   else if (shownMin >= 1)              statusLine = `${shownMin} min so far`;
   else                                 statusLine = "Not played yet today";
 

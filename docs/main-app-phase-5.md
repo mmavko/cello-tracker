@@ -107,13 +107,22 @@ if (today.isRestDay)                chips.push({ icon: "😌", label: "Rest day"
 it isn't shown twice. When `streak.current === streak.longest && current > 0`, an
 optional "🌟 your best ever" flourish. Keep `points.total` + version + 🔑 in the footer.
 
-**C. Protection-aware status line.** The current line says "Not played yet today" even
-on a holiday/rest day, which misreads a protected day as a gap. Make it status-aware:
+**C. Protection-aware status line.** A plain "Not played yet today" misreads a
+protected or lesson-credited day as a gap. The label is a **prefix**; accrued mic
+minutes **append whenever she played some** — sub-floor minutes still earn points even
+on a holiday/rest/lesson day, so never hide them. `secured` is checked first (playing
+to the floor beats a holiday and secures a lesson day). The lesson line carries an
+**"at home"** qualifier because a lesson day has two minute quantities — the lesson's
+own `lenMin` and her home practice — so a bare "· N min" would read as the lesson length
+(holiday/rest can't have a lesson — that would make `status === "lesson"` — so their N
+is unambiguous):
 ```js
+const shownMin = Math.round(today.playedMin);
 let statusLine;
-if (today.status === "holiday")      statusLine = "Holiday — enjoy your day off 🏝️";
-else if (today.isRestDay)            statusLine = "Rest day — playing's optional today";
-else if (today.secured)              statusLine = `Today counts ✓ · ${shownMin} min`;
+if (today.secured)                   statusLine = `Today counts ✓ · ${shownMin} min`;
+else if (today.status === "lesson")  statusLine = `Lesson logged ✓${shownMin >= 1 ? ` · ${shownMin} min at home` : ""}`;
+else if (today.status === "holiday") statusLine = shownMin >= 1 ? `Holiday 🏝️ · ${shownMin} min` : "Holiday — enjoy your day off 🏝️";
+else if (today.isRestDay)            statusLine = shownMin >= 1 ? `Rest day · ${shownMin} min` : "Rest day — playing's optional today";
 else if (shownMin >= 1)              statusLine = `${shownMin} min so far`;
 else                                 statusLine = "Not played yet today";
 ```
