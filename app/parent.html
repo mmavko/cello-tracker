@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f1e6cf" />
+  <title>Cello · Parent area</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Hanken+Grotesk:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* ── Tokens: mirrors index.html's warm musician's-passport palette ──────── */
+    :root {
+      --paper:    #f1e6cf;
+      --paper-2:  #e9dabd;
+      --paper-3:  #e0cda6;
+      --ink:      #2c2015;
+      --ink-soft: #7a6647;
+      --line:     #cbb286;
+      --wood:     #b5651d;
+      --wood-2:   #97501a;
+      --gold:     #c8881a;
+      --gold-2:   #e7b14a;
+      --travel:   #2f6f6a;
+      --shadow:   28px 22px 60px -28px rgba(58, 38, 16, .55);
+      --r:        20px;
+      --fs-display: "Fraunces", Georgia, serif;
+      --fs-body: "Hanken Grotesk", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body {
+      overscroll-behavior: none;
+      background:
+        radial-gradient(46% 40% at 50% 44%, #fbf3e1 0%, var(--paper) 100%)
+        var(--paper);
+      font-family: var(--fs-body);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    #root {
+      height: 100%;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: max(22px, env(safe-area-inset-top)) 22px max(40px, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    h1 { font-family: var(--fs-display); font-weight: 900; letter-spacing: -.02em; margin: 0; }
+    h2 { font-family: var(--fs-display); font-weight: 700; font-size: 17px; margin: 0 0 12px; }
+    button { font-family: inherit; cursor: pointer; border: none; color: inherit; background: none; }
+    input, select { font-family: inherit; }
+
+    /* ── Header / nav ─────────────────────────────────────────────────────── */
+    .p-head { text-align: center; position: relative; padding-top: 6px; }
+    .p-head h1 { font-size: 26px; }
+    .p-sub { color: var(--ink-soft); font-size: 13px; margin: 4px 0 0; font-weight: 500; }
+    .back-link {
+      display: inline-block; margin-top: 4px; color: var(--ink-soft);
+      font-size: 13px; font-weight: 600; text-decoration: none;
+    }
+
+    /* ── PIN gate ─────────────────────────────────────────────────────────── */
+    .pin-wrap {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; text-align: center; animation: rise .4s both;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes shake {
+      10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); }
+      30%, 50%, 70% { transform: translateX(-4px); } 40%, 60% { transform: translateX(4px); }
+    }
+    .pin-lock { font-size: 44px; }
+    .pin-title { font-family: var(--fs-display); font-weight: 700; font-size: 19px; margin: 0; }
+    .pin-note { color: var(--ink-soft); font-size: 13px; max-width: 26ch; margin: 0; }
+    .pin-input {
+      width: 160px; padding: 14px; text-align: center; letter-spacing: .4em;
+      font-size: 24px; border-radius: 14px; border: 1px solid var(--line);
+      background: var(--paper-2); color: var(--ink);
+    }
+    .pin-input.err { animation: shake .35s; border-color: #b5453a; }
+    .pin-go {
+      padding: 14px 36px; border-radius: 999px; font-family: var(--fs-display);
+      font-weight: 600; font-size: 17px; color: #fff5e3;
+      background: linear-gradient(180deg, var(--wood), var(--wood-2)); box-shadow: var(--shadow);
+    }
+    .pin-go:active { transform: translateY(2px); }
+    .pin-reset-note { color: var(--ink-soft); font-size: 11px; max-width: 28ch; margin-top: 18px; }
+
+    /* ── Cards / controls ────────────────────────────────────────────────── */
+    .p-controls { display: grid; gap: 14px; padding-bottom: 4px; }
+    .pcard {
+      background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--r);
+      padding: 16px; box-shadow: var(--shadow);
+    }
+    .pcard.primary { background: linear-gradient(160deg, #fbf0d6, var(--paper-3)); border-color: var(--gold); }
+    .pcard-hint { color: var(--ink-soft); font-size: 12px; margin: 10px 0 0; }
+
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .row:last-child { margin-bottom: 0; }
+    .row-label { font-size: 13px; font-weight: 600; color: var(--ink-soft); flex-shrink: 0; }
+
+    .stepper { display: flex; align-items: center; gap: 10px; }
+    .stepper button {
+      width: 34px; height: 34px; border-radius: 999px; font-size: 18px; font-weight: 700;
+      background: var(--paper-3); border: 1px solid var(--line); line-height: 1;
+    }
+    .stepper button:disabled { opacity: .35; }
+    .stepper button:active:not(:disabled) { transform: scale(.92); }
+    .stepper .val {
+      min-width: 9ch; text-align: center; font-family: var(--fs-display); font-weight: 700; font-size: 15px;
+    }
+    .stepper .val small { display: block; font-family: var(--fs-body); font-weight: 500; font-size: 11px; color: var(--ink-soft); }
+
+    .date-range { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .date-range label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+    .date-range input[type="date"] {
+      padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper-3); color: var(--ink);
+    }
+
+    select.p-select {
+      padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper-3); color: var(--ink);
+      font-size: 14px; font-weight: 600;
+    }
+
+    .pbtn {
+      width: 100%; margin-top: 12px; padding: 14px; border-radius: 14px;
+      font-family: var(--fs-display); font-weight: 600; font-size: 16px; color: #fff5e3;
+      background: linear-gradient(180deg, var(--wood), var(--wood-2)); box-shadow: 0 8px 18px -12px rgba(120,80,20,.6);
+    }
+    .pbtn:active { transform: translateY(2px); }
+    .pbtn.ghost {
+      background: var(--paper-3); color: var(--ink); box-shadow: none; border: 1px solid var(--line);
+    }
+
+    .detector-link {
+      display: block; text-align: center; padding: 14px; border-radius: var(--r);
+      background: var(--paper-2); border: 1px solid var(--line); color: var(--ink-soft);
+      font-weight: 600; font-size: 14px; text-decoration: none;
+    }
+
+    /* ── Live readout (mirrors the test panel's) ─────────────────────────── */
+    .p-readout {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+      background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    }
+    .p-readout > div {
+      background: var(--paper-2); padding: 11px 14px;
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    }
+    .p-readout span { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+    .p-readout b { font-family: var(--fs-display); font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+    .p-readout b small { font-weight: 400; font-size: 11px; color: var(--ink-soft); }
+
+    .back-tracker {
+      text-align: center; margin-top: 6px; color: var(--ink-soft); font-size: 13px; font-weight: 600; text-decoration: none;
+    }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 12%; transform: translate(-50%, 20px);
+      background: var(--ink); color: var(--paper); font-weight: 700;
+      padding: 12px 20px; border-radius: 999px; box-shadow: var(--shadow);
+      opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s; z-index: 50;
+      max-width: calc(100% - 60px); text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  </style>
+</head>
+<body>
+  <main id="root"></main>
+  <script type="module" src="parent.js"></script>
+</body>
+</html>

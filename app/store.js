@@ -78,6 +78,46 @@ export function endSession(i) {
   save(inputs);
 }
 
+// ── Parent-area facts (Phase 4) ───────────────────────────────────────────────
+
+// Upsert a lesson: one lesson per date (replace any existing entry for that date,
+// so re-logging the same day corrects rather than duplicates). lenMin is the
+// lesson's own length (Phase 3a: lessonDays[] = [{date, lenMin}]).
+export function logLesson(date, lenMin) {
+  const inputs = load();
+  inputs.lessonDays = inputs.lessonDays.filter((l) => l.date !== date);
+  inputs.lessonDays.push({ date, lenMin: Math.max(1, Math.round(lenMin)) });
+  save(inputs);
+}
+
+// Append a parent-declared protected range (inclusive). One day = start === end.
+// Overlaps are harmless (engine's inHoliday is "D within ANY range").
+export function addHoliday(start, end) {
+  const inputs = load();
+  inputs.holidays.push({ start, end });
+  save(inputs);
+}
+
+// Merge a config patch (dailyFloorMin, restWeekday). Low-stakes → save on change.
+export function setConfig(patch) {
+  const inputs = load();
+  inputs.config = { ...inputs.config, ...patch };
+  save(inputs);
+}
+
+// ── Parent PIN (separate key; shell auth state, NOT an engine input) ──────────
+const PARENT_KEY = "cello.parent";
+
+export function hasPin() {
+  try { return !!JSON.parse(localStorage.getItem(PARENT_KEY))?.pin; } catch { return false; }
+}
+export function setPin(pin) {
+  localStorage.setItem(PARENT_KEY, JSON.stringify({ pin }));
+}
+export function checkPin(pin) {
+  try { return JSON.parse(localStorage.getItem(PARENT_KEY))?.pin === pin; } catch { return false; }
+}
+
 // Local 'YYYY-MM-DDThh:mm:ss' (no 'Z') so slice(0,10) is the LOCAL date — the
 // engine keys a session's day on the first 10 chars and compares to ctx.today.
 // NEVER use toISOString() (UTC) here: it mis-dates sessions near midnight.
@@ -112,7 +152,7 @@ export function saveTest(t) {
   localStorage.setItem(TEST_KEY, JSON.stringify(t));
 }
 
-function addDaysStr(dateStr, n) {
+export function addDaysStr(dateStr, n) {
   const d = new Date(dateStr + "T12:00:00Z"); // UTC midday dodges DST drift
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);

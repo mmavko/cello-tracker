@@ -251,5 +251,3 @@ only — no stored derived values, `npm test` green.
 - Calendar + detailed stats (Phase 6); the `kind`-tagged holiday colour hook.
 - Bonuses + "your usual" anchor (Phase 7).
 - Editing/removing arbitrary past facts; PIN reset (Phase 8 / engineer view).
-</content>
-</invoke>

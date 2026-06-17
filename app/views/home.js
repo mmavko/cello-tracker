@@ -71,7 +71,7 @@ export function render({ root, state, actions }) {
       <span>·</span>
       <span>🔥 longest ${streak.longest}</span>
       <span class="ver">v${VERSION}</span>
-      <a class="tune" href="detector.html" title="tune detection">⚙</a>
+      <a class="tune" href="parent.html" title="grown-ups">🔑</a>
     </footer>
   `;
 
