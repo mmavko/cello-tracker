@@ -1,7 +1,8 @@
 // ── views/collection.js ──────────────────────────────────────────────────────
 // The World Tour (UX §7.4, §4): a CSS grid of emoji "stamps". Unlocked in colour,
-// locked dimmed + 🔒 with the cost shown. Tap a tile for its one-line fact. On a
-// break the whole grid greyscales (binary `dim`; the GRADUAL recolour is Phase 5).
+// locked dimmed + 🔒 with the cost shown. Tap a tile for its one-line fact. A break
+// continuously greyscales the grid from `collection.dim` (1 → 0 as she earns the
+// world back, Phase 5) — the showcase surface for the gradual recolour.
 // No per-tile artwork — the entire visual surface is data.
 
 import { WORLD_TOUR } from "../theme.js";
@@ -9,10 +10,15 @@ import { WORLD_TOUR } from "../theme.js";
 export function render({ root, state, actions }) {
   const { collection, points } = state;
   const unlocked = new Set(collection.unlockedIds);
-  const cooled = collection.dim === 1;
+  const dim = collection.dim;
   const next = points.nextTile;
+  const cooledNote = state.recovery.active
+    ? dim === 1
+      ? `<p class="cooled-note">Your world has cooled — play to bring it back.</p>`
+      : `<p class="cooled-note">Warming back up — keep playing 🎨</p>`
+    : "";
 
-  root.className = "view view-collection" + (cooled ? " cooled" : "");
+  root.className = "view view-collection";
   root.innerHTML = `
     <header class="coll-head">
       <button class="back" id="back">←</button>
@@ -23,7 +29,7 @@ export function render({ root, state, actions }) {
           ? `<p class="coll-next">${points.toNextTile.toLocaleString()} pts to <strong>${next.name}</strong></p>`
           : `<p class="coll-next">The whole world is yours 🌍</p>`
       }
-      ${cooled ? `<p class="cooled-note">Your world has cooled — play to bring it back.</p>` : ""}
+      ${cooledNote}
     </header>
 
     <div class="world">
@@ -40,6 +46,20 @@ export function render({ root, state, actions }) {
 
     <div class="fact-sheet" id="fact" hidden></div>
   `;
+
+  // Continuous recolour with a one-frame entrance warm-up: a full innerHTML
+  // render makes `.world` a brand-new element each time, so a bare
+  // `transition: filter` has nothing to animate FROM — start a step greyer,
+  // then animate to the true warmth on the next frame (Phase 5 decision #2).
+  const warmFilter = `grayscale(${dim}) opacity(${(1 - 0.4 * dim).toFixed(3)})`;
+  const world = root.querySelector(".world");
+  if (dim > 0) {
+    const entryDim = Math.min(dim + 0.3, 1);
+    world.style.filter = `grayscale(${entryDim}) opacity(${(1 - 0.4 * entryDim).toFixed(3)})`;
+    requestAnimationFrame(() => { world.style.filter = warmFilter; });
+  } else {
+    world.style.filter = warmFilter; // grayscale(0) opacity(1) = no effect
+  }
 
   root.querySelector("#back").addEventListener("click", () => actions.go("home"));
 

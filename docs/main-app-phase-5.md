@@ -201,4 +201,3 @@ sessions, animating on each visit. All from existing engine output (plus
 - Calendar + detailed stats (Phase 6) — the day-by-day `daysIndex` history view.
 - Bonuses + "your usual" anchor (Phase 7).
 - Any `atRisk` surfacing (decision #3 — intentionally never).
-</content>

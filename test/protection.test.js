@@ -283,6 +283,16 @@ test("P21 · two different-length lessons project per-lesson points", () => {
   assert.equal(s.points.total, 70);                              // round(20×1.0) + round(50×1.0)
 });
 
+// P22 — today.isRestDay flags an unplayed rest weekday only (Phase 5 decision #1).
+test("P22 · today.isRestDay flags an unplayed rest weekday, not a played one", () => {
+  const rest = project(mk({ config: { restWeekday: 0 } }), { today: "2026-06-14" });
+  assert.equal(rest.today.isRestDay, true);            // Sunday, nothing played → optional
+  const playedRest = project(mk({ config: { restWeekday: 0 }, sessions: played(["2026-06-14"]) }), { today: "2026-06-14" });
+  assert.equal(playedRest.today.isRestDay, false);     // she played → it's a Played day
+  const weekday = project(mk({ config: { restWeekday: 0 } }), { today: "2026-06-17" });
+  assert.equal(weekday.today.isRestDay, false);        // Wednesday → not the rest day
+});
+
 // ── Determinism ───────────────────────────────────────────────────────────────
 
 // D1 — order-independent across ALL input arrays (sessions, lessonDays, holidays).

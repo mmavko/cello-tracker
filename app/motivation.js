@@ -207,6 +207,13 @@ export function project(inputs, ctx) {
 
   const todaySec = dailySec[today] ?? 0;
 
+  // today.status resolves to "open" (the D===today branch short-circuits before
+  // the rest/frozen/missed checks — today's protections are decided at rollover),
+  // so a view can't read "today is the rest day" off `status`. Derive it here
+  // rather than re-deriving the weekday rule in the view (Phase 5 decision #1).
+  const todayIsRestDay =
+    restWeekday != null && weekdayOf(today) === restWeekday && todayStatus === "open";
+
   // Recovery → continuous dim (1 → 0). Phase 5 adds only the CSS transition.
   const progress = recovery.active
     ? Math.min(Math.max(recovery.minutesTarget > 0 ? recovery.minutesDone / recovery.minutesTarget : 0, 0), 1)
@@ -227,6 +234,7 @@ export function project(inputs, ctx) {
       isOvertime: todaySecured,                 // == secured (overtime nuance is Phase 5)
       pointsToday,
       status:     todayStatus,                  // holiday | played | lesson | open
+      isRestDay:  todayIsRestDay,                // open + the rest weekday + nothing played
     },
     streak: {
       current,

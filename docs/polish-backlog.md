@@ -16,4 +16,3 @@ lives in `.chronicles/`, not here.
 - [ ] **Live readout "Day" omits the test-offset indicator.** The test panel shows
   `(+N)` when the clock is advanced; the parent readout shows only the bare date.
   Mirror the `(+N)` so a tainted/offset state is obvious here too (cosmetic).
-</content>
