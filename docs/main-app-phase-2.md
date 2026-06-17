@@ -410,5 +410,3 @@ day-types on the deployed phone.
 - **Binary `dim` only** — render the engine's 0/1 dim; gradual recolour is Phase 5.
 - **Persist inputs only** — if you reach for a stored streak/points/unlock, stop; it
   belongs in `project()` (arch §8).
-</content>
-</invoke>
