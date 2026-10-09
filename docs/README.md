@@ -1,7 +1,7 @@
 # Design docs
 
 Current technical design. For *why* we got here — past decisions, killed
-hypotheses, the arc — read `../chronicles.md`. This folder is what's true now;
+hypotheses, the arc — read `../.chronicles/digest.md`. This folder is what's true now;
 chronicles is how it became true.
 
 - **[platform-foundations.md](platform-foundations.md)** — mic permission flow,

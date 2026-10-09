@@ -1,0 +1,10 @@
+# chronicles-version: 0.1.0
+# Project settings for chronicles. Read by .chronicles/check.
+format: 3
+# Most words the digest may hold. Over this, the check fails and a reconcile is due.
+budget_words: 3000
+# The project's binding docs (a path), or "none". The digest points to these, never restates them.
+authority: none
+# The v2 cutover entry (file name without .md), or a date. Entries before it are legacy:
+# the check applies only E2 and E4 to them. Leave out in a new project.
+since: 2026-10-09-1746-chronicles-v2-cutover

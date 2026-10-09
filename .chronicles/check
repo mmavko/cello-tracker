@@ -1,0 +1,527 @@
+#!/usr/bin/env python3
+# chronicles-version: 0.1.0
+"""chronicles-check: mechanical quality control for a project's .chronicles/ folder.
+
+Run from the project root. Python 3 standard library only.
+
+  chronicles-check             check; exit 0 clean/warnings, 1 errors, 2 cannot run
+  chronicles-check --strict    warnings also exit 1
+  chronicles-check --signal    at most 3 short lines for the session-start hook
+  chronicles-check --list      every entry, newest first
+  chronicles-check --who E     entries that supersede, refine or close entry E
+  chronicles-check --metrics   orientation cost, entries since reconcile, missed per month
+
+Errors  E1 digest over budget; E2 pointer does not resolve; E3 v2 entry malformed;
+        E4 supersedes/refines target bad; E5 open-item id problem; E6 digest points to a
+        superseded entry without its successor.
+Warnings W1 digest over 85% of budget; W2 entry over 500 words; W3 says it reverses
+        something but has no supersedes/refines; W4 entries not yet in the digest;
+        W5 open item older than 30 days; W6 title too short or too long.
+"""
+import datetime
+import os
+import re
+import sys
+
+VERSION = "0.1.0"
+SUPPORTED_FORMATS = {"3"}
+DEFAULT_BUDGET = 3000
+KINDS = {"decision", "finding", "correction", "event"}
+FIELDS = ("kind", "changes", "supersedes", "refines", "applies", "closes", "opens", "missed")
+TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}-\d{4})-")
+SLUG_RE = re.compile(r"\d{4}-\d{2}-\d{2}-\d{4}-[A-Za-z0-9_-]+")
+H1_RE = re.compile(r"^# (\d{4}-\d{2}-\d{2}) (\d{4}) — (.+)$")
+FIELD_RE = re.compile(r"^(" + "|".join(FIELDS) + r"):[ \t]*(.*)$")
+BRACKET_RE = re.compile(r"^\[(supersedes|refines|applies):[ \t]*(.*?)\][ \t]*$")
+WIKI_RE = re.compile(r"\[\[([^\]\n]+)\]\]")
+PATH_RE = re.compile(r"entries/([^\s)\]>`,;\"']+?\.md)")
+CUTOVER_RE = re.compile(r"^[ \t]*(?:[-*][ \t]+)?superseded:[ \t]*(\S+)[ \t]+by[ \t]+(\S+)")
+REVERSAL_RE = re.compile(r"reversal|supersedes|was wrong|no longer|reverses", re.I)
+OPEN_ITEM_RE = re.compile(r"^[-*][ \t]+(.*)$")
+OPEN_ID_RE = re.compile(r"^\[(?!\[)([A-Za-z0-9_.-]+)\]")
+
+
+class CannotRun(Exception):
+    pass
+
+
+def words(text):
+    return len(text.split())
+
+
+def strip_comment(value):
+    value = re.sub(r"\s+#(\s.*)?$", "", value)
+    value = re.sub(r"\s*←.*$", "", value)
+    return value.strip()
+
+
+def is_placeholder(name):
+    return any(c in name for c in "<>*") or "YYYY" in name or "…" in name or "..." in name
+
+
+def norm_slug(token):
+    """Reduce a pointer (slug, filename or entries/ path) to a bare slug."""
+    t = token.strip().strip("`")
+    t = t.split("/")[-1] if "entries/" in t or t.endswith(".md") else t
+    if t.endswith(".md"):
+        t = t[:-3]
+    return t
+
+
+def ts_of(name):
+    m = TS_RE.match(name)
+    return m.group(1) if m else None
+
+
+def non_fenced_lines(text):
+    """Yield (lineno, line) for lines outside fenced code blocks."""
+    fenced = False
+    for i, line in enumerate(text.split("\n"), 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if not fenced:
+            yield i, line
+
+
+class Entry:
+    def __init__(self, path, name):
+        self.path = path
+        self.name = name  # file name
+        self.slug = name[:-3]
+        self.ts = ts_of(name)
+        with open(path, encoding="utf-8") as f:
+            self.text = f.read()
+        self.lines = self.text.split("\n")
+        self.legacy = False
+        self.fields = {}  # field -> list of (lineno, value)
+        for i, line in non_fenced_lines(self.text):
+            m = BRACKET_RE.match(line)
+            if m:
+                self.fields.setdefault(m.group(1), []).append((i, strip_comment(m.group(2))))
+                continue
+            m = FIELD_RE.match(line)
+            if m:
+                self.fields.setdefault(m.group(1), []).append((i, strip_comment(m.group(2))))
+
+    @property
+    def rel(self):
+        return "entries/" + self.name
+
+    @property
+    def title(self):
+        first = self.lines[0] if self.lines else ""
+        return first[2:] if first.startswith("# ") else first
+
+    def targets(self, field):
+        """Slugs named in a relation field (supersedes, refines, applies)."""
+        out = []
+        for lineno, value in self.fields.get(field, []):
+            toks = SLUG_RE.findall(value)
+            if toks:
+                out.extend((lineno, t) for t in toks)
+            elif value:
+                out.append((lineno, norm_slug(value.split(",")[0])))
+        return out
+
+    def ids(self, field):
+        out = []
+        for _, value in self.fields.get(field, []):
+            value = re.split(r"\s+—\s+|\s+--\s+", value)[0]
+            for part in re.split(r"[,;]", value):
+                part = part.strip()
+                if part:
+                    out.append(part.split()[0])
+        return out
+
+
+class Project:
+    def __init__(self, root="."):
+        self.root = os.path.abspath(root)
+        self.dir = os.path.join(self.root, ".chronicles")
+        if not os.path.isdir(self.dir):
+            raise CannotRun("no .chronicles/ in " + self.root)
+        self.config = self.read_config()
+        fmt = self.config.get("format")
+        if fmt not in SUPPORTED_FORMATS:
+            raise CannotRun("config: unknown or missing format %r (this checker supports: %s)"
+                            % (fmt, ", ".join(sorted(SUPPORTED_FORMATS))))
+        try:
+            self.budget = int(self.config.get("budget_words", DEFAULT_BUDGET))
+        except ValueError:
+            raise CannotRun("config: budget_words is not a number")
+        digest_path = os.path.join(self.dir, "digest.md")
+        try:
+            with open(digest_path, encoding="utf-8") as f:
+                self.digest = f.read()
+        except OSError:
+            raise CannotRun("cannot read .chronicles/digest.md")
+        self.entries = {}
+        edir = os.path.join(self.dir, "entries")
+        if os.path.isdir(edir):
+            for name in sorted(os.listdir(edir)):
+                if name.endswith(".md") and ts_of(name):
+                    self.entries[name[:-3]] = Entry(os.path.join(edir, name), name)
+        self.since = self.config.get("since", "").strip()
+        self.since_slug = None
+        self.since_key = None
+        if self.since:
+            s = norm_slug(self.since)
+            m = re.match(r"^\d{4}-\d{2}-\d{2}(-\d{4})?", s)
+            if not m:
+                raise CannotRun("config: since is not an entry name or a date")
+            self.since_key = m.group(0)
+            if s in self.entries:
+                self.since_slug = s
+        for e in self.entries.values():
+            e.legacy = bool(self.since_key) and e.ts[:len(self.since_key)] < self.since_key
+        self.cutover = []  # (lineno, A, B) read from the cutover entry
+        if self.since_slug:
+            for i, line in non_fenced_lines(self.entries[self.since_slug].text):
+                m = CUTOVER_RE.match(line)
+                if m:
+                    self.cutover.append((i, norm_slug(m.group(1)), norm_slug(m.group(2))))
+        self.superseded_by = {}  # slug -> set of superseders
+        self.refined_by = {}
+        for e in self.entries.values():
+            for _, t in e.targets("supersedes"):
+                self.superseded_by.setdefault(t, set()).add(e.slug)
+            for _, t in e.targets("refines"):
+                self.refined_by.setdefault(t, set()).add(e.slug)
+        for _, a, b in self.cutover:
+            self.superseded_by.setdefault(a, set()).add(b)
+
+    def read_config(self):
+        path = os.path.join(self.dir, "config")
+        try:
+            with open(path, encoding="utf-8") as f:
+                lines = f.read().split("\n")
+        except OSError:
+            raise CannotRun("cannot read .chronicles/config")
+        cfg = {}
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if ":" not in line:
+                raise CannotRun("config: unreadable line %r" % line)
+            k, v = line.split(":", 1)
+            cfg[k.strip()] = strip_comment(v)
+        return cfg
+
+    # ---------------- helpers ----------------
+    def digest_header(self, key):
+        for i, line in enumerate(self.digest.split("\n"), 1):
+            m = re.match(r"^" + re.escape(key) + r":[ \t]*(.*)$", line)
+            if m:
+                return i, strip_comment(m.group(1))
+        return None, None
+
+    def pointers(self, text):
+        """Yield (lineno, slug, raw) for every entry pointer outside fenced blocks."""
+        for i, line in non_fenced_lines(text):
+            for m in WIKI_RE.finditer(line):
+                raw = m.group(1).strip()
+                if is_placeholder(raw):
+                    continue
+                yield i, norm_slug(raw), "[[%s]]" % raw
+            for m in PATH_RE.finditer(line):
+                raw = m.group(1)
+                if is_placeholder(raw):
+                    continue
+                yield i, norm_slug(raw), "entries/" + raw
+
+    def open_items(self):
+        """Return [(lineno, id or None, line)] for top-level bullets under '## Open'."""
+        items = []
+        inside = False
+        for i, line in non_fenced_lines(self.digest):
+            if line.startswith("## "):
+                inside = line[3:].strip().lower().startswith("open")
+                continue
+            if inside:
+                m = OPEN_ITEM_RE.match(line)
+                if m:
+                    im = OPEN_ID_RE.match(m.group(1))
+                    items.append((i, im.group(1) if im else None, line))
+        return items
+
+    def applied_through(self):
+        return self.digest_header("applied-through")
+
+    # ---------------- the check ----------------
+    def check(self, today=None):
+        findings = []  # (code, where, message)
+
+        def add(code, where, msg):
+            findings.append((code, where, msg))
+
+        today = today or datetime.date.today()
+        dwords = words(self.digest)
+
+        # E1 / W1
+        if dwords > self.budget:
+            add("E1", "digest.md", "%d words, over the budget of %d" % (dwords, self.budget))
+        elif dwords > 0.85 * self.budget:
+            add("W1", "digest.md", "%d words, over 85%% of the budget of %d" % (dwords, self.budget))
+
+        # E2: digest pointers
+        for i, slug, raw in self.pointers(self.digest):
+            if slug not in self.entries:
+                add("E2", "digest.md:%d" % i, "%s does not resolve" % raw)
+        for key in ("authority",):
+            lineno, val = self.digest_header(key)
+            self.check_paths(add, "digest.md:%s" % lineno, val)
+        self.check_paths(add, "config", self.config.get("authority"))
+
+        # applied-through
+        aln, applied = self.applied_through()
+        applied_ts = None
+        if applied and applied.split()[0].lower() == "none":
+            applied_ts = ""
+        elif applied:
+            slug = norm_slug(applied.split()[0])
+            if slug in self.entries:
+                applied_ts = self.entries[slug].ts
+            else:
+                add("E2", "digest.md:%d" % aln, "applied-through %s does not resolve" % slug)
+        else:
+            add("W4", "digest.md", "no applied-through line; cannot tell which entries are applied")
+        if applied_ts is not None:
+            newer = [e for e in self.entries.values() if e.ts > applied_ts]
+            if newer:
+                add("W4", "digest.md", "%d entries newer than applied-through are not in the digest yet"
+                    % len(newer))
+
+        # E5 / W5: open items
+        items = self.open_items()
+        seen = {}
+        for i, oid, line in items:
+            if oid is None:
+                add("E5", "digest.md:%d" % i, "open item has no [id]")
+            elif oid in seen:
+                add("E5", "digest.md:%d" % i, "duplicate open id %s (first at line %d)" % (oid, seen[oid]))
+            else:
+                seen[oid] = i
+            ptr_ts = [self.entries[s].ts for _, s, _ in self.pointers(line) if s in self.entries]
+            if ptr_ts:
+                born = datetime.date(int(min(ptr_ts)[:4]), int(min(ptr_ts)[5:7]), int(min(ptr_ts)[8:10]))
+                if (today - born).days > 30:
+                    add("W5", "digest.md:%d" % i, "open item %s is %d days old; close it or confirm it is still open"
+                        % (oid or "?", (today - born).days))
+        if applied_ts:
+            for e in self.entries.values():
+                if e.ts <= applied_ts:
+                    for cid in e.ids("closes"):
+                        if cid in seen:
+                            add("E5", "digest.md:%d" % seen[cid],
+                                "%s is closed by %s (at or before applied-through) but still listed"
+                                % (cid, e.rel))
+
+        # Entries
+        for e in self.entries.values():
+            self.check_entry(e, add)
+
+        # Cutover supersession map
+        for i, a, b in self.cutover:
+            where = "%s:%d" % (self.entries[self.since_slug].rel, i)
+            for s in (a, b):
+                if s not in self.entries:
+                    add("E4", where, "superseded: %s does not exist" % s)
+            if a in self.entries and b in self.entries:
+                if a == b:
+                    add("E4", where, "superseded: entry supersedes itself")
+
+        # E6
+        for i, line in non_fenced_lines(self.digest):
+            slugs = {s for _, s, _ in self.pointers(line)}
+            for s in sorted(slugs):
+                succ = self.superseded_by.get(s)
+                if succ and not (succ & slugs):
+                    add("E6", "digest.md:%d" % i, "points to %s, superseded by %s, and not to its successor"
+                        % (s, ", ".join(sorted(succ))))
+        return findings, dwords
+
+    def check_paths(self, add, where, value):
+        if not value or value.lower() in ("none", "n/a", "-"):
+            return
+        for tok in re.split(r"[;,]", value):
+            tok = re.sub(r"\([^)]*\)", "", tok)
+            tok = re.sub(r"\s*§.*$", "", tok).strip().strip("`")
+            if not tok or re.search(r"\s", tok) or any(c in tok for c in "*<>"):
+                continue
+            if "/" in tok or re.search(r"\.\w{1,5}$", tok):
+                if not os.path.exists(os.path.join(self.root, tok)):
+                    add("E2", where, "path %s does not resolve" % tok)
+
+    def check_entry(self, e, add):
+        # Legacy entries are immutable history written before the checker existed:
+        # nothing in them can be fixed, so they raise nothing. (The cutover map,
+        # in a v2 entry, is still checked.)
+        if e.legacy:
+            return
+        # E2: pointers inside entries
+        for i, slug, raw in self.pointers(e.text):
+            if slug != e.slug and slug not in self.entries:
+                add("E2", "%s:%d" % (e.rel, i), "%s does not resolve" % raw)
+        # E4: relation targets
+        for field in ("supersedes", "refines"):
+            for i, t in e.targets(field):
+                where = "%s:%d" % (e.rel, i)
+                if t == e.slug:
+                    add("E4", where, "%s names the entry itself" % field)
+                elif t not in self.entries:
+                    add("E4", where, "%s target %s does not exist" % (field, t))
+                # No "target is newer" test: entries carry the event's time, not the
+                # writing time, so an entry may rightly refine one written before it.
+        if e.legacy:
+            return
+        # E3
+        m = H1_RE.match(e.lines[0] if e.lines else "")
+        if not m:
+            add("E3", e.rel + ":1", "H1 is not '# YYYY-MM-DD HHMM — title'")
+            title = e.title
+        else:
+            title = m.group(3)
+            if m.group(1) + "-" + m.group(2) != e.ts:
+                add("E3", e.rel + ":1", "filename date/time %s differs from the H1's %s %s"
+                    % (e.ts, m.group(1), m.group(2)))
+        kinds = e.fields.get("kind", [])
+        kind = kinds[0][1].split()[0] if kinds and kinds[0][1] else None
+        if not kind:
+            add("E3", e.rel, "kind: is missing")
+        elif kind not in KINDS:
+            add("E3", e.rel + ":%d" % kinds[0][0], "kind: %s is not one of %s" % (kind, "|".join(sorted(KINDS))))
+        changes = e.fields.get("changes", [])
+        if not changes or not changes[0][1]:
+            add("E3", e.rel, "changes: is missing")
+        else:
+            self.check_paths(add, "%s:%d" % (e.rel, changes[0][0]), changes[0][1])
+        if kind == "correction" and not (e.fields.get("supersedes") or e.fields.get("missed")):
+            add("E3", e.rel, "kind: correction has neither supersedes: nor missed:")
+        # warnings
+        n = words(e.text)
+        if n > 500:
+            add("W2", e.rel, "%d words, over 500" % n)
+        if not (e.fields.get("supersedes") or e.fields.get("refines")):
+            body = "\n".join(l for _, l in non_fenced_lines(e.text)
+                             if not FIELD_RE.match(l) and not BRACKET_RE.match(l))
+            hit = REVERSAL_RE.search(body)
+            if hit:
+                add("W3", e.rel, "says '%s' but has no supersedes:/refines:" % hit.group(0))
+        if len(title.split()) < 6 or len(title) > 160:
+            add("W6", e.rel + ":1", "title has %d words and %d characters (want 6+ words, at most 160 characters)"
+                % (len(title.split()), len(title)))
+
+    # ---------------- other modes ----------------
+    def resolve(self, token):
+        slug = norm_slug(token)
+        if slug in self.entries:
+            return slug
+        matches = [s for s in self.entries if s.startswith(slug)]
+        return matches[0] if len(matches) == 1 else None
+
+    def who(self, token):
+        slug = self.resolve(token)
+        if not slug:
+            raise CannotRun("no such entry: " + token)
+        out = []
+        for s in sorted(self.superseded_by.get(slug, ())):
+            out.append("supersedes by entries/%s.md" % s)
+        for s in sorted(self.refined_by.get(slug, ())):
+            out.append("refined by entries/%s.md" % s)
+        opened = set(self.entries[slug].ids("opens"))
+        if opened:
+            for e in self.entries.values():
+                if e.slug != slug and opened & set(e.ids("closes")):
+                    out.append("closes (%s) by entries/%s.md" % (", ".join(sorted(opened & set(e.ids("closes")))), e.slug))
+        return out
+
+    def metrics(self, today=None):
+        today = today or datetime.date.today()
+        dwords = words(self.digest)
+        _, rec = self.digest_header("last-reconciled")
+        since_rec = None
+        if rec and re.match(r"\d{4}-\d{2}-\d{2}", rec):
+            since_rec = len([e for e in self.entries.values() if e.ts[:10] > rec[:10]])
+        missed = {}
+        for e in self.entries.values():
+            k = e.fields.get("kind")
+            if k and k[0][1].split()[:1] == ["correction"] and e.fields.get("missed"):
+                missed[e.ts[:7]] = missed.get(e.ts[:7], 0) + 1
+        return dwords, since_rec, missed
+
+
+def run_check(proj, strict=False):
+    today = None
+    if os.environ.get("CHRONICLES_TODAY"):
+        today = datetime.date.fromisoformat(os.environ["CHRONICLES_TODAY"])
+    findings, dwords = proj.check(today)
+    return findings, dwords, today
+
+
+def main(argv):
+    args = argv[1:]
+    strict = "--strict" in args
+    args = [a for a in args if a != "--strict"]
+    if args and args[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0
+    if args and args[0] == "--version":
+        print("chronicles-check " + VERSION)
+        return 0
+    mode = args[0] if args else None
+    try:
+        proj = Project(".")
+        if mode == "--who":
+            if len(args) < 2:
+                raise CannotRun("--who needs an entry name")
+            res = proj.who(args[1])
+            for line in res or ["no later entry supersedes, refines or closes it"]:
+                print(line)
+            return 0
+        if mode == "--list":
+            for e in sorted(proj.entries.values(), key=lambda x: x.name, reverse=True):
+                print("- [%s](%s)" % (e.title, e.rel))
+            return 0
+        findings, dwords, today = run_check(proj, strict)
+        errors = [f for f in findings if f[0].startswith("E")]
+        warns = [f for f in findings if f[0].startswith("W")]
+        if mode == "--metrics":
+            dw, since_rec, missed = proj.metrics(today)
+            print("M1 orientation cost: digest %d words, about %d tokens (budget %d words)"
+                  % (dw, round(dw * 1.35), proj.budget))
+            print("entries: %d; since last-reconciled: %s%s" % (
+                len(proj.entries), since_rec if since_rec is not None else "unknown",
+                " (reconcile due)" if since_rec is not None and since_rec >= 50 else ""))
+            if missed:
+                print("M2 missed (corrections where an agent re-decided): " +
+                      ", ".join("%s: %d" % (k, v) for k, v in sorted(missed.items())))
+            else:
+                print("M2 missed: none recorded")
+            return 0
+        if mode == "--signal":
+            dw = words(proj.digest)
+            print("chronicles: %d entries; digest %d/%d words; %d open items"
+                  % (len(proj.entries), dw, proj.budget, len(proj.open_items())))
+            tail = "check: %d errors, %d warnings" % (len(errors), len(warns))
+            if any(f[0] == "E1" for f in findings):
+                tail += "; reconcile due (digest over budget)"
+            print(tail)
+            return 1 if errors or (strict and warns) else 0
+        if mode is not None:
+            raise CannotRun("unknown option " + mode)
+        for code, where, msg in findings:
+            print("%s %s %s" % (code, where, msg))
+        print("chronicles-check: %d errors, %d warnings" % (len(errors), len(warns)))
+        return 1 if errors or (strict and warns) else 0
+    except CannotRun as exc:
+        print("chronicles-check: cannot run: %s" % exc)
+        return 2
+    except (OSError, UnicodeDecodeError) as exc:
+        print("chronicles-check: cannot run: %s" % exc)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
